@@ -24,9 +24,9 @@ def main():
     for i, strategy in enumerate(pairs.columns):
         X[i] = pr.compute_features(pairs['2013':'2014'][strategy], features_list)
 
-    Y = np.zeros((nb_strategies, 1))
+    y = np.zeros((nb_strategies, 1))
     for i, strategy in enumerate(pairs.columns):
-        Y[i] = np.array([ft.sharpe_ratio(pairs['2015'])])
+        y[i] = np.array([ft.sharpe_ratio(pairs['2015'])])
 
 
 
