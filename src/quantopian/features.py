@@ -82,13 +82,21 @@ def sortino_ratio(returns):
 
 
 def drawdown_area(returns):
-    raise NotImplementedError
+    c_returns = returns.cumsum()
+    highs = c_returns.expanding().max()
+
+    diff = c_returns - highs
+
+    return diff.abs().sum()
 
 
 def max_drawdown(returns):
     c_returns = returns.cumsum()
+    highs = c_returns.expanding().max()
 
-    raise NotImplementedError
+    diff = c_returns - highs
+
+    return np.abs(np.min(diff))
 
 
 def calmar_ratio(returns, periods=252):
@@ -102,21 +110,3 @@ def tail_ratio(returns, tail=0.05):
 def common_sense_ratio(returns, tail=0.05, periods=252):
     return tail_ratio(returns, tail=tail) * (1 + annret(returns, periods))
 
-
-def total_pos_count(returns):
-    raise NotImplementedError
-
-
-def max_pos_held(returns):
-    raise NotImplementedError
-
-
-def mean_pos_held(returns):
-    raise NotImplementedError
-
-
-def median_pos_held(returns):
-    raise NotImplementedError
-
-
-def
