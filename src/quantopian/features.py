@@ -36,7 +36,7 @@ def skewnewss(returns):
     return returns.skew()
 
 
-def kurtoisis(returns):
+def kurtosis(returns):
     return returns.kurt()
 
 
