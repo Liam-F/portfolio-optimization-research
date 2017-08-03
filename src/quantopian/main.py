@@ -2,7 +2,9 @@ import numpy as np
 import pandas as pd
 import preprocessing as pr
 import features as ft
-
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.preprocessing import scale
+from sklearn.model_selection import cross_val_score
 
 def filter_pairs(pairs):
     return pr.filter_on_nb_trades(
@@ -28,6 +30,7 @@ def create_outputs(pairs, feature_list):
 
 def main():
     pairs = pd.read_csv('./data/2017-08-03-filtered-in-sample-pairs.csv', parse_dates=True, index_col=0)
+    pairs = pairs[pairs.columns[:100]]
 
     features_list = (ft.trading_days, ft.sharpe_ratio, ft.sharpe_ratio_last_year, ft.annret, ft.annvol,
                      ft.skewnewss, ft.kurtosis, ft.information_ratio,
@@ -35,11 +38,12 @@ def main():
                      ft.tail_ratio, ft.common_sense_ratio)
 
     X = create_inputs(pairs, features_list)
-
+    X = scale(X, axis=1)
     y = create_outputs(pairs, features_list)
+    y = scale(y, axis=1)
 
-
-
+    forest = RandomForestRegressor()
+    cross_val_score(forest, X, y, cv=4)
 
 if __name__ == '__main__':
     main()
