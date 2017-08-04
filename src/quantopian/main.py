@@ -101,8 +101,8 @@ def main():
     features_names = [features_list[i].__name__ for i in indices]
     plt.figure()
     plt.title("Feature importance")
-    plt.bar(range(X.shape[1])[:10], importances[indices][:10], yerr=std[indices][:10], align='center')
-    plt.xticks(range(X.shape[1])[:10], features_names[:10], rotation=90)
+    plt.bar(range(X.shape[1]), importances[indices], yerr=std[indices], align='center')
+    plt.xticks(range(X.shape[1]), features_names, rotation=90)
     plt.tight_layout()
     plt.show()
 
