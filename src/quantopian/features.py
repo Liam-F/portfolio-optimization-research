@@ -11,14 +11,14 @@ def load_spy(fn='./data/es-all.csv'):
     return data[['spy_returns']]
 
 
-
 def trading_days(returns):
     return returns.shape[0]
 
 
 def sharpe_ratio(returns, periods=252):
-    return np.sqrt(periods) * returns.mean() / returns.std()
-
+    std = returns.std() == 0
+    std = 1 if std == 0 else std
+    return np.sqrt(periods) * returns.mean() / std
 
 def sharpe_ratio_last_year(returns, periods=252):
     return sharpe_ratio(returns.iloc[-252:], periods=periods)
@@ -100,11 +100,17 @@ def max_drawdown(returns):
 
 
 def calmar_ratio(returns, periods=252):
-    return periods * returns.mean() / max_drawdown(returns)
+    md = max_drawdown(returns)
+    md = 1 if md == 0 else md
+
+    return periods * returns.mean() / md
 
 
 def tail_ratio(returns, tail=0.05):
-    return returns.quantile(1 - tail) / np.abs(returns.quantile(0.05))
+    qt = np.abs(returns.quantile(0.05))
+    qt = 1 if qt == 0 else qt
+
+    return returns.quantile(1 - tail) / qt
 
 
 def common_sense_ratio(returns, tail=0.05, periods=252):

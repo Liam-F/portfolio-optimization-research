@@ -17,4 +17,4 @@ def compute_features(returns, feature_functions):
     result = []
     for feature in feature_functions:
         result.append(feature(returns))
-    return  np.array(result)
+    return np.array(result)
