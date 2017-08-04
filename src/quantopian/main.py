@@ -34,11 +34,12 @@ def create_outputs(pairs, feature_list):
 
 def main():
     features_list = (ft.trading_days, ft.sharpe_ratio, ft.sharpe_ratio_last_year, ft.annret, ft.annvol,
-                     ft.skewnewss, ft.kurtosis, ft.information_ratio,
+                     ft.skewness, ft.kurtosis, ft.information_ratio,
                      ft.sharpe_std, ft.sortino_ratio, ft.drawdown_area, ft.max_drawdown, ft.calmar_ratio,
                      ft.tail_ratio, ft.common_sense_ratio)
 
     if not os.path.exists('./data/2017-08-03-filtered-pairs-features.csv'):
+        print('File does not exist, creating and saving')
         pairs = pd.read_csv('./data/2017-08-03-filtered-in-sample-pairs.csv', parse_dates=True, index_col=0)
         # pairs = pairs[pairs.columns[:1000]]
 
@@ -58,20 +59,20 @@ def main():
             index=observations.index
         )
 
-        # Throw out observations which are more than 4 standard deviations away from the mean
-        observations_scaled = observations_scaled[np.all(observations_scaled.abs() <= 4, axis=1)]
-
         observations_scaled.to_csv('./data/2017-08-03-filtered-pairs-features.csv')
     else:
         print('File exists!')
         observations_scaled = pd.read_csv('./data/2017-08-03-filtered-pairs-features.csv', index_col=0)
+
+    # Throw out observations which are more than 4 standard deviations away from the mean
+    observations_scaled = observations_scaled[np.all(observations_scaled.abs() <= 4, axis=1)]
 
     X = observations_scaled.drop(['OUTPUT'], axis=1)
     y = observations_scaled['OUTPUT']
 
     X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.25, random_state=42)
 
-    forest = RandomForestRegressor()
+    forest = RandomForestRegressor(n_estimators=100)#, criterion='mae', min_samples_leaf=8, min_samples_split=16)
     forest.fit(X_tr, y_tr)
 
     test_predictions = forest.predict(X_te)
@@ -82,8 +83,8 @@ def main():
     )
     sns.pairplot(predictions)
 
-    plt.figure()
-    sns.jointplot(pd.Series(test_predictions, name='Pred'), y_te.rename('True'), kind='reg')
+    # plt.figure()
+    # sns.jointplot(pd.Series(test_predictions, name='Pred'), y_te.rename('True'), kind='reg')
 
     print(f'R2 score: {r2_score(y_te, test_predictions)}')
 

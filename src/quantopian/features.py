@@ -37,7 +37,7 @@ def annvol(returns, periods=252):
     return np.sqrt(periods) * returns.std()
 
 
-def skewnewss(returns):
+def skewness(returns):
     return returns.skew()
 
 
