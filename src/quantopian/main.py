@@ -2,9 +2,12 @@ import numpy as np
 import pandas as pd
 import preprocessing as pr
 import features as ft
+import seaborn as sns
+import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.preprocessing import scale
-from sklearn.model_selection import cross_val_score
+from sklearn.preprocessing import robust_scale
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import r2_score
 
 def filter_pairs(pairs):
     return pr.filter_on_nb_trades(
@@ -48,7 +51,7 @@ def main():
     observations = observations[np.all(np.isfinite(observations), axis=1)]
 
     observations_scaled = pd.DataFrame(
-        data=scale(observations),
+        data=robust_scale(observations),
         columns=observations.columns,
         index=observations.index
     )
@@ -56,8 +59,34 @@ def main():
     # Throw out observations which are more than 4 standard deviations away from the mean
     observations_scaled = observations_scaled[np.all(observations_scaled.abs() <= 4, axis=1)]
 
-    # forest = RandomForestRegressor()
-    # cross_val_score(forest, X, y, cv=4)
+    X = observations_scaled.drop(['OUTPUT'], axis=1)
+    y = observations_scaled['OUTPUT']
+
+    X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.25, random_state=42)
+
+    forest = RandomForestRegressor()
+    forest.fit(X_tr, y_tr)
+
+    test_predictions = forest.predict(X_te)
+    te_size = test_predictions.shape[0]
+    predictions = pd.DataFrame(
+        data = np.hstack([test_predictions.reshape(te_size, 1), y_te.values.reshape(te_size, 1)]),
+        columns = ['predicted Sharpe', 'real Sharpe']
+    )
+
+    sns.pairplot(predictions)
+    plt.show()
+
+    print(f'R2 score: {r2_score(y_te, test_predictions)}')
+
+    importances = forest.feature_importances_
+    indices = np.argsort(importances)[::-1]
+    features_names = [features_list[i].__name__ for i in indices]
+    fig = plt.figure()
+    plt.title("Feature importance")
+    plt.bar(range(X.shape[1]), importances[indices], align='center')
+    plt.xticks(range(X.shape[1]), features_names)
+    plt.show()
 
 if __name__ == '__main__':
     main()
