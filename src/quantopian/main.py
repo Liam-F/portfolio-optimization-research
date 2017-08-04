@@ -41,6 +41,9 @@ def main():
     if not os.path.exists('./data/2017-08-03-filtered-pairs-features.csv'):
         print('File does not exist, creating and saving')
         pairs = pd.read_csv('./data/2017-08-03-filtered-in-sample-pairs.csv', parse_dates=True, index_col=0)
+
+        pairs = pairs.T[pairs.apply(pd.Series.nunique, axis=0) > 600].T
+
         # pairs = pairs[pairs.columns[:1000]]
 
         X = create_inputs(pairs, features_list)
@@ -65,14 +68,18 @@ def main():
         observations_scaled = pd.read_csv('./data/2017-08-03-filtered-pairs-features.csv', index_col=0)
 
     # Throw out observations which are more than 4 standard deviations away from the mean
+    # Note: doesn't really matter for Random Forests
     observations_scaled = observations_scaled[np.all(observations_scaled.abs() <= 4, axis=1)]
+
+    # sns.pairplot(observations_scaled)
+    # plt.savefig('pairplot.png', bbox_inches='tight')
 
     X = observations_scaled.drop(['OUTPUT'], axis=1)
     y = observations_scaled['OUTPUT']
 
     X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.25, random_state=42)
 
-    forest = RandomForestRegressor(n_estimators=100)#, criterion='mae', min_samples_leaf=8, min_samples_split=16)
+    forest = RandomForestRegressor(n_estimators=100, random_state=43)#, criterion='mae', min_samples_leaf=8, min_samples_split=16)
     forest.fit(X_tr, y_tr)
 
     test_predictions = forest.predict(X_te)
