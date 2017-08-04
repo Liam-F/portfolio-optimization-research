@@ -12,12 +12,15 @@ def load_spy(fn='./data/es-all.csv'):
 
 
 def trading_days(returns):
-    return returns.shape[0]
+    return returns[returns != 0].shape[0]
 
+
+np.seterr(all='raise')
 
 def sharpe_ratio(returns, periods=252):
-    std = returns.std() == 0
+    std = returns.std()
     std = 1 if std == 0 else std
+
     return np.sqrt(periods) * returns.mean() / std
 
 def sharpe_ratio_last_year(returns, periods=252):

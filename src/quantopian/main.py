@@ -24,7 +24,7 @@ def create_outputs(pairs, feature_list):
     nb_strategies = pairs.shape[1]
     y = np.zeros((nb_strategies, 1))
     for i, strategy in enumerate(pairs.columns):
-        y[i] = np.array([ft.sharpe_ratio(pairs['2015'])])
+        y[i] = np.array([ft.sharpe_ratio(pairs['2015':'2015'][strategy])])
     return y
 
 
@@ -38,12 +38,24 @@ def main():
                      ft.tail_ratio, ft.common_sense_ratio)
 
     X = create_inputs(pairs, features_list)
-    X = scale(X, axis=1)
     y = create_outputs(pairs, features_list)
-    y = scale(y, axis=1)
 
-    forest = RandomForestRegressor()
-    cross_val_score(forest, X, y, cv=4)
+    observations = pd.DataFrame(
+        data=np.hstack([X, y]),
+        columns=[f.__name__ for f in features_list] + ['OUTPUT'],
+        index=pairs.columns
+    ).dropna()
+    observations = observations[np.all(np.isfinite(observations), axis=1)]
+
+    observations_scaled = pd.DataFrame(
+        data=scale(observations),
+        columns=observations.columns,
+        index=observations.index
+    )
+
+
+    # forest = RandomForestRegressor()
+    # cross_val_score(forest, X, y, cv=4)
 
 if __name__ == '__main__':
     main()
