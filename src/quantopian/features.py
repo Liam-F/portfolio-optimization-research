@@ -19,7 +19,9 @@ np.seterr(all='raise')
 
 def sharpe_ratio(returns, periods=252):
     std = returns.std()
-    std = 1 if std == 0 else std
+
+    if std == 0:
+        return np.nan
 
     return np.sqrt(periods) * returns.mean() / std
 
@@ -104,14 +106,18 @@ def max_drawdown(returns):
 
 def calmar_ratio(returns, periods=252):
     md = max_drawdown(returns)
-    md = 1 if md == 0 else md
+
+    if md == 0:
+        return np.nan
 
     return periods * returns.mean() / md
 
 
 def tail_ratio(returns, tail=0.05):
     qt = np.abs(returns.quantile(0.05))
-    qt = 1 if qt == 0 else qt
+
+    if qt == 0:
+        return np.nan
 
     return returns.quantile(1 - tail) / qt
 

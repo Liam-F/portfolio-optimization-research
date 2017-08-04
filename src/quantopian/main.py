@@ -53,6 +53,8 @@ def main():
         index=observations.index
     )
 
+    # Throw out observations which are more than 4 standard deviations away from the mean
+    observations_scaled = observations_scaled[np.all(observations_scaled.abs() <= 4, axis=1)]
 
     # forest = RandomForestRegressor()
     # cross_val_score(forest, X, y, cv=4)
