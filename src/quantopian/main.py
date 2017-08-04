@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import preprocessing as pr
 import features as ft
+import os
 import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestRegressor
@@ -32,32 +33,38 @@ def create_outputs(pairs, feature_list):
 
 
 def main():
-    pairs = pd.read_csv('./data/2017-08-03-filtered-in-sample-pairs.csv', parse_dates=True, index_col=0)
-    pairs = pairs[pairs.columns[:100]]
-
     features_list = (ft.trading_days, ft.sharpe_ratio, ft.sharpe_ratio_last_year, ft.annret, ft.annvol,
                      ft.skewnewss, ft.kurtosis, ft.information_ratio,
                      ft.sharpe_std, ft.sortino_ratio, ft.drawdown_area, ft.max_drawdown, ft.calmar_ratio,
                      ft.tail_ratio, ft.common_sense_ratio)
 
-    X = create_inputs(pairs, features_list)
-    y = create_outputs(pairs, features_list)
+    if not os.path.exists('./data/2017-08-03-filtered-pairs-features.csv'):
+        pairs = pd.read_csv('./data/2017-08-03-filtered-in-sample-pairs.csv', parse_dates=True, index_col=0)
+        # pairs = pairs[pairs.columns[:1000]]
 
-    observations = pd.DataFrame(
-        data=np.hstack([X, y]),
-        columns=[f.__name__ for f in features_list] + ['OUTPUT'],
-        index=pairs.columns
-    ).dropna()
-    observations = observations[np.all(np.isfinite(observations), axis=1)]
+        X = create_inputs(pairs, features_list)
+        y = create_outputs(pairs, features_list)
 
-    observations_scaled = pd.DataFrame(
-        data=robust_scale(observations),
-        columns=observations.columns,
-        index=observations.index
-    )
+        observations = pd.DataFrame(
+            data=np.hstack([X, y]),
+            columns=[f.__name__ for f in features_list] + ['OUTPUT'],
+            index=pairs.columns
+        ).dropna()
+        observations = observations[np.all(np.isfinite(observations), axis=1)]
 
-    # Throw out observations which are more than 4 standard deviations away from the mean
-    observations_scaled = observations_scaled[np.all(observations_scaled.abs() <= 4, axis=1)]
+        observations_scaled = pd.DataFrame(
+            data=robust_scale(observations),
+            columns=observations.columns,
+            index=observations.index
+        )
+
+        # Throw out observations which are more than 4 standard deviations away from the mean
+        observations_scaled = observations_scaled[np.all(observations_scaled.abs() <= 4, axis=1)]
+
+        observations_scaled.to_csv('./data/2017-08-03-filtered-pairs-features.csv')
+    else:
+        print('File exists!')
+        observations_scaled = pd.read_csv('./data/2017-08-03-filtered-pairs-features.csv', index_col=0)
 
     X = observations_scaled.drop(['OUTPUT'], axis=1)
     y = observations_scaled['OUTPUT']
@@ -73,9 +80,7 @@ def main():
         data = np.hstack([test_predictions.reshape(te_size, 1), y_te.values.reshape(te_size, 1)]),
         columns = ['predicted Sharpe', 'real Sharpe']
     )
-
     sns.pairplot(predictions)
-    plt.show()
 
     print(f'R2 score: {r2_score(y_te, test_predictions)}')
 
@@ -84,8 +89,9 @@ def main():
     features_names = [features_list[i].__name__ for i in indices]
     fig = plt.figure()
     plt.title("Feature importance")
-    plt.bar(range(X.shape[1]), importances[indices], align='center')
-    plt.xticks(range(X.shape[1]), features_names)
+    plt.bar(range(X.shape[1])[:10], importances[indices][:10], align='center')
+    plt.xticks(range(X.shape[1])[:10], features_names[:10], rotation=90)
+    plt.tight_layout()
     plt.show()
 
 if __name__ == '__main__':
