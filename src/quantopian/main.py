@@ -77,17 +77,20 @@ def main():
     test_predictions = forest.predict(X_te)
     te_size = test_predictions.shape[0]
     predictions = pd.DataFrame(
-        data = np.hstack([test_predictions.reshape(te_size, 1), y_te.values.reshape(te_size, 1)]),
-        columns = ['predicted Sharpe', 'real Sharpe']
+        data=np.hstack([test_predictions.reshape(te_size, 1), y_te.values.reshape(te_size, 1)]),
+        columns=['predicted Sharpe', 'real Sharpe']
     )
     sns.pairplot(predictions)
+
+    plt.figure()
+    sns.jointplot(pd.Series(test_predictions, name='Pred'), y_te.rename('True'), kind='reg')
 
     print(f'R2 score: {r2_score(y_te, test_predictions)}')
 
     importances = forest.feature_importances_
     indices = np.argsort(importances)[::-1]
     features_names = [features_list[i].__name__ for i in indices]
-    fig = plt.figure()
+    plt.figure()
     plt.title("Feature importance")
     plt.bar(range(X.shape[1])[:10], importances[indices][:10], align='center')
     plt.xticks(range(X.shape[1])[:10], features_names[:10], rotation=90)
