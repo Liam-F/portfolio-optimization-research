@@ -88,11 +88,12 @@ def main():
     print(f'R2 score: {r2_score(y_te, test_predictions)}')
 
     importances = forest.feature_importances_
+    std = np.std([tree.feature_importances_ for tree in forest.estimators_], axis=0)
     indices = np.argsort(importances)[::-1]
     features_names = [features_list[i].__name__ for i in indices]
     plt.figure()
     plt.title("Feature importance")
-    plt.bar(range(X.shape[1])[:10], importances[indices][:10], align='center')
+    plt.bar(range(X.shape[1])[:10], importances[indices][:10], yerr=std[indices][:10], align='center')
     plt.xticks(range(X.shape[1])[:10], features_names[:10], rotation=90)
     plt.tight_layout()
     plt.show()
