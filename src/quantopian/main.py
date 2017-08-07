@@ -1,3 +1,4 @@
+import xgboost
 import numpy as np
 import pandas as pd
 import preprocessing as pr
@@ -109,55 +110,39 @@ def main():
 
     # Throw out observations which are more than 4 standard deviations away from the mean
     # Note: doesn't really matter for Random Forests
-    # observations_scaled = observations_scaled[np.all(observations_scaled.abs() <= 4, axis=1)]
+    observations_scaled = observations_scaled[np.all(observations_scaled.abs() <= 4, axis=1)]
 
     # sns.pairplot(observations_scaled)
     # plt.savefig('pairplot.png', bbox_inches='tight')
 
     X = observations_scaled.drop(['OUTPUT'], axis=1)
     y = observations_scaled['OUTPUT']
-    # groups = np.array([-9999, -1, 0, 0.5, 0.75, 1, 9999])
-    # # groups = np.array([-9999, 0, 9999])
-    # labels = np.arange(groups.shape[0] - 1)
-    # y = pd.cut(y, groups, labels=labels)
+    groups = np.array([-9999, -1, 0, 0.5, 0.75, 1, 9999])
+    labels = np.arange(groups.shape[0] - 1)
+    y = pd.cut(y, groups, labels=labels)
 
-    X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.25, random_state=42)
-    # X_tr, X_te, y_tr, y_te = train_test_split(X, y, stratify=y, test_size=0.25, random_state=42)
+    X_tr, X_te, y_tr, y_te = train_test_split(X, y, stratify=y, test_size=0.25, random_state=42)
 
-    forest = RandomForestRegressor(n_estimators=100, random_state=43)#, criterion='mae', min_samples_leaf=8, min_samples_split=16)
-    # forest = RandomForestClassifier(n_estimators=100)
+    forest = RandomForestClassifier(n_estimators=100, random_state=43)
     forest.fit(X_tr, y_tr)
 
     test_predictions = forest.predict(X_te)
-    te_size = test_predictions.shape[0]
-    predictions = pd.DataFrame(
-        data=np.hstack([test_predictions.reshape(te_size, 1), y_te.values.reshape(te_size, 1)]),
-        columns=['predicted Sharpe', 'real Sharpe']
-    )
-    sns.pairplot(predictions)
 
-    # plt.figure()
-    # sns.jointplot(pd.Series(test_predictions, name='Pred'), y_te.rename('True'), kind='reg')
-
-    # print(f'R2 score: {r2_score(y_te, test_predictions)}')
-
-    bin_preds = binarize(test_predictions.reshape(-1, 1))
-    bin_y_te = binarize(y_te).reshape(-1, 1)
-    # bin_preds = test_predictions
-    # bin_y_te = y_te
+    bin_preds = test_predictions
+    bin_y_te = y_te
     print(f'F1 score: {f1_score(bin_y_te, bin_preds, average="macro")}')
 
     cm = confusion_matrix(bin_y_te, bin_preds)
-    names = ['Neg', 'Pos']
-    # names = ['(%s, %s]' % (a, b) for a, b in zip(groups[:-1], groups[1:])]
+    names = ['(%s, %s]' % (a, b) for a, b in zip(groups[:-1], groups[1:])]
     confusion = pd.DataFrame(cm, index=names, columns=names)
 
     print('Confusion Matrix')
     print(confusion)
     plot_confusion_matrix(cm, names)
 
-    result = y_te.to_frame('true').merge(pd.Series(test_predictions, index=y_te.index, name='pred').to_frame(), left_index=True, right_index=True)
-    result[(result['true'] == 3) & (result['pred'] == 1)].index
+    # Useful for comparisons when debugging
+    result = y_te.to_frame('true').merge(pd.Series(test_predictions, index=y_te.index, name='pred').to_frame(),
+                                         left_index=True, right_index=True)
 
     importances = forest.feature_importances_
     std = np.std([tree.feature_importances_ for tree in forest.estimators_], axis=0)
