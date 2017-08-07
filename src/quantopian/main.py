@@ -8,7 +8,8 @@ import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.preprocessing import robust_scale
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import r2_score
+from sklearn.metrics import r2_score, f1_score, confusion_matrix
+from sklearn.preprocessing import binarize
 
 def filter_pairs(pairs):
     return pr.filter_on_nb_trades(
@@ -41,9 +42,6 @@ def main():
     if not os.path.exists('./data/2017-08-03-filtered-pairs-features.csv'):
         print('File does not exist, creating and saving')
         pairs = pd.read_csv('./data/2017-08-03-filtered-in-sample-pairs.csv', parse_dates=True, index_col=0)
-
-        pairs = pairs.T[pairs.apply(pd.Series.nunique, axis=0) > 600].T
-
         # pairs = pairs[pairs.columns[:1000]]
 
         X = create_inputs(pairs, features_list)
@@ -69,7 +67,7 @@ def main():
 
     # Throw out observations which are more than 4 standard deviations away from the mean
     # Note: doesn't really matter for Random Forests
-    observations_scaled = observations_scaled[np.all(observations_scaled.abs() <= 4, axis=1)]
+    # observations_scaled = observations_scaled[np.all(observations_scaled.abs() <= 4, axis=1)]
 
     # sns.pairplot(observations_scaled)
     # plt.savefig('pairplot.png', bbox_inches='tight')
@@ -94,6 +92,11 @@ def main():
     # sns.jointplot(pd.Series(test_predictions, name='Pred'), y_te.rename('True'), kind='reg')
 
     print(f'R2 score: {r2_score(y_te, test_predictions)}')
+
+    bin_preds = binarize(test_predictions.reshape(-1, 1))
+    bin_y_te = binarize(y_te).reshape(-1, 1)
+    print(f'F1 score: {f1_score(bin_y_te, bin_preds)}')
+    print(f'Confusion matrix: {confusion_matrix(bin_y_te, bin_preds)}')
 
     importances = forest.feature_importances_
     std = np.std([tree.feature_importances_ for tree in forest.estimators_], axis=0)
