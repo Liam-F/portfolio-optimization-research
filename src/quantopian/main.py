@@ -58,7 +58,9 @@ def plot_confusion_matrix(cm, classes,
     else:
         print('Confusion matrix, without normalization')
 
-    print(cm)
+    confusion = pd.DataFrame(cm, index=classes, columns=classes)
+    print('Confusion Matrix')
+    print(confusion)
 
     thresh = cm.max() / 2.
     import itertools
@@ -119,9 +121,6 @@ def classification_forest(X, y, features_list):
 
     cm = confusion_matrix(bin_y_te, bin_preds)
     names = ['(%s, %s]' % (a, b) for a, b in zip(groups[:-1], groups[1:])]
-    confusion = pd.DataFrame(cm, index=names, columns=names)
-    print('Confusion Matrix')
-    print(confusion)
     plot_confusion_matrix(cm, names)
     # Useful for comparisons when debugging
     result = y_te.to_frame('true').merge(pd.Series(test_predictions, index=y_te.index, name='pred').to_frame(),
