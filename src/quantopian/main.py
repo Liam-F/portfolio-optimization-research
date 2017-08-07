@@ -1,4 +1,3 @@
-import xgboost
 import numpy as np
 import pandas as pd
 import preprocessing as pr
@@ -6,14 +5,14 @@ import features as ft
 import os
 import seaborn as sns
 import matplotlib.pyplot as plt
-from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import robust_scale
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import r2_score, f1_score, confusion_matrix
-from sklearn.preprocessing import binarize
+from sklearn.metrics import f1_score, confusion_matrix
 
 
 pd.set_option('display.width', 200)
+sns.set_style('white')
 
 
 def filter_pairs(pairs):
