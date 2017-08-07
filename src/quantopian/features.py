@@ -33,16 +33,32 @@ def annret(returns, periods=252):
     return periods * returns.mean()
 
 
+def annret_last_year(returns, periods=252):
+    return annret(returns.iloc[-252:], periods=periods)
+
+
 def annvol(returns, periods=252):
     return np.sqrt(periods) * returns.std()
+
+
+def annvol_last_year(returns, periods=252):
+    return annvol(returns.iloc[-252:], periods=periods)
 
 
 def skewness(returns):
     return returns.skew()
 
 
+def skewness_last_year(returns):
+    return skewness(returns.iloc[-252:])
+
+
 def kurtosis(returns):
     return returns.kurt()
+
+
+def kurtosis_last_year(returns):
+    return kurtosis(returns.iloc[-252:])
 
 
 def stability(returns):
@@ -70,6 +86,10 @@ def information_ratio(returns):
     return diff.mean() / diff.std()
 
 
+def information_ratio_last_year(returns):
+    return information_ratio(returns.iloc[-252:])
+
+
 def beta_std(returns):
     raise NotImplementedError
 
@@ -86,6 +106,10 @@ def sortino_ratio(returns):
     return returns.mean() / returns[returns < 0].std()
 
 
+def sortino_last_year(returns):
+    return sortino_ratio(returns.iloc[-252:])
+
+
 def drawdown_area(returns):
     c_returns = returns.cumsum()
     highs = c_returns.expanding().max()
@@ -93,6 +117,10 @@ def drawdown_area(returns):
     diff = c_returns - highs
 
     return diff.abs().sum()
+
+
+def drawdown_area_last_year(returns):
+    return drawdown_area(returns.iloc[-252:])
 
 
 def max_drawdown(returns):
@@ -104,6 +132,10 @@ def max_drawdown(returns):
     return np.abs(np.min(diff))
 
 
+def max_drawdown_last_year(returns):
+    return max_drawdown(returns.iloc[-252:])
+
+
 def calmar_ratio(returns, periods=252):
     md = max_drawdown(returns)
 
@@ -111,6 +143,10 @@ def calmar_ratio(returns, periods=252):
         return np.nan
 
     return periods * returns.mean() / md
+
+
+def calmar_ratio_last_year(returns, periods=252):
+    return calmar_ratio(returns.iloc[-252:], periods=periods)
 
 
 def tail_ratio(returns, tail=0.05):
@@ -122,6 +158,14 @@ def tail_ratio(returns, tail=0.05):
     return returns.quantile(1 - tail) / qt
 
 
+def tail_ratio_last_year(returns, tail=0.05):
+    return tail_ratio(returns.iloc[-252:], tail=tail)
+
+
 def common_sense_ratio(returns, tail=0.05, periods=252):
     return tail_ratio(returns, tail=tail) * (1 + annret(returns, periods))
+
+
+def common_sense_ratio_last_year(returns, tail=0.05, periods=252):
+    return common_sense_ratio(returns.iloc[-252:], tail=tail, periods=periods)
 
