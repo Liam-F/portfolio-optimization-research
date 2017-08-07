@@ -5,10 +5,10 @@ import features as ft
 import os
 import seaborn as sns
 import matplotlib.pyplot as plt
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.preprocessing import robust_scale
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.preprocessing import robust_scale, binarize
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import f1_score, confusion_matrix, roc_curve, auc
+from sklearn.metrics import f1_score, confusion_matrix, roc_curve, auc, r2_score
 
 pd.set_option('display.width', 200)
 sns.set_style('white')
@@ -94,6 +94,9 @@ def plot_feature_importance(features_list, forest):
         'drawdown_area': 'Drawdown Area',
         'sharpe_std': 'STD of In-Sample Sharpe Ratio',
         'sharpe_ratio_last_year': '12M Sharpe Ratio',
+        'sharpe_ratio_last_30_days': '1M Sharpe Ratio',
+        'sharpe_ratio_last_90_days': '3M Sharpe Ratio',
+        'sharpe_ratio_last_150_days': '5M Sharpe Ratio',
         'sortino_ratio': 'Sortino',
         'trading_days': 'Trading Days (PnL != 0)',
         'kurtosis': 'Kurtosis'
@@ -141,11 +144,38 @@ def classification_forest(X, y, features_list):
     plt.show()
 
 
+def regression_forest(X, y, features_list):
+    X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.25, random_state=42)
+
+    forest = RandomForestRegressor(n_estimators=100, random_state=42)
+    forest.fit(X_tr, y_tr)
+
+    te_predictions = forest.predict(X_te).reshape(-1, 1)
+    te_real_values = y_te.values.reshape(-1, 1)
+
+    print(f'R2 score: {r2_score(te_real_values, te_predictions)}')
+
+    g = sns.jointplot(te_predictions, te_real_values, kind='reg')
+    g.ax_joint.plot([-7, 7], [-7, 7])
+
+    # Classification metrics
+    bin_preds = binarize(te_predictions)
+    bin_real_values = binarize(te_real_values)
+
+    print(f'F1 score: {f1_score(bin_real_values, bin_preds)}')
+    print(f'Confusion matrix: {confusion_matrix(bin_real_values, bin_preds)}')
+
+    plot_feature_importance(features_list, forest)
+    plt.show()
+
+
 def main():
     features_list = (ft.trading_days, ft.sharpe_ratio, ft.sharpe_ratio_last_year, ft.annret, ft.annvol,
                      ft.skewness, ft.kurtosis, ft.information_ratio,
                      ft.sharpe_std, ft.sortino_ratio, ft.drawdown_area, ft.max_drawdown, ft.calmar_ratio,
-                     ft.tail_ratio, ft.common_sense_ratio)
+                     ft.tail_ratio, ft.common_sense_ratio,
+                     ft.sharpe_ratio_last_30_days, ft.sharpe_ratio_last_90_days,
+                     ft.sharpe_ratio_last_150_days)
 
     features_csv = './data/2017-08-07-filtered-pairs-features.csv'
 
@@ -176,12 +206,13 @@ def main():
 
     # Throw out observations which are more than 4 standard deviations away from the mean
     # Note: doesn't really matter for Random Forests
-    observations_scaled = observations_scaled[np.all(observations_scaled.abs() <= 4, axis=1)]
+    # observations_scaled = observations_scaled[np.all(observations_scaled.abs() <= 4, axis=1)]
 
     X = observations_scaled.drop(['OUTPUT'], axis=1)
     y = observations_scaled['OUTPUT']
 
-    classification_forest(X, y, features_list)
+    # classification_forest(X, y, features_list)
+    regression_forest(X, y, features_list)
 
 
 if __name__ == '__main__':
