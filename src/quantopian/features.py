@@ -17,6 +17,7 @@ def trading_days(returns):
 
 np.seterr(all='raise')
 
+
 def sharpe_ratio(returns, periods=252):
     std = returns.std()
 
@@ -25,8 +26,25 @@ def sharpe_ratio(returns, periods=252):
 
     return np.sqrt(periods) * returns.mean() / std
 
+
+def sharpe_ratio_last_x(returns, time_period, periods=252):
+    return sharpe_ratio(returns[-time_period:], periods=periods)
+
+
+def sharpe_ratio_last_90_days(returns, periods=252):
+    return sharpe_ratio_last_x(returns, 90, periods=periods)
+
+
+def sharpe_ratio_last_30_days(returns, periods=252):
+    return sharpe_ratio_last_x(returns, 30, periods=periods)
+
+
+def sharpe_ratio_last_150_days(returns, periods=252):
+    return sharpe_ratio_last_x(returns, 150, periods=periods)
+
+
 def sharpe_ratio_last_year(returns, periods=252):
-    return sharpe_ratio(returns.iloc[-252:], periods=periods)
+    return sharpe_ratio_last_x(returns, 252, periods=252)
 
 
 def annret(returns, periods=252):
@@ -168,4 +186,3 @@ def common_sense_ratio(returns, tail=0.05, periods=252):
 
 def common_sense_ratio_last_year(returns, tail=0.05, periods=252):
     return common_sense_ratio(returns.iloc[-252:], tail=tail, periods=periods)
-
