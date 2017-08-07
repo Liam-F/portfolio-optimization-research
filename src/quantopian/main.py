@@ -92,6 +92,9 @@ def plot_feature_importance(features_list, forest):
         'drawdown_area': 'Drawdown Area',
         'sharpe_std': 'STD of In-Sample Sharpe Ratio',
         'sharpe_ratio_last_year': '12M Sharpe Ratio',
+        'sharpe_ratio_last_30_days': '1M Sharpe Ratio',
+        'sharpe_ratio_last_90_days': '3M Sharpe Ratio',
+        'sharpe_ratio_last_150_days': '5M Sharpe Ratio',
         'sortino_ratio': 'Sortino',
         'trading_days': 'Trading Days (PnL != 0)',
         'kurtosis': 'Kurtosis'
@@ -160,7 +163,9 @@ def main():
     features_list = (ft.trading_days, ft.sharpe_ratio, ft.sharpe_ratio_last_year, ft.annret, ft.annvol,
                      ft.skewness, ft.kurtosis, ft.information_ratio,
                      ft.sharpe_std, ft.sortino_ratio, ft.drawdown_area, ft.max_drawdown, ft.calmar_ratio,
-                     ft.tail_ratio, ft.common_sense_ratio)
+                     ft.tail_ratio, ft.common_sense_ratio,
+                     ft.sharpe_ratio_last_30_days, ft.sharpe_ratio_last_90_days,
+                     ft.sharpe_ratio_last_150_days)
 
     features_csv = './data/2017-08-07-filtered-pairs-features.csv'
 
