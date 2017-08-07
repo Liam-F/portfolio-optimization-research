@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import robust_scale
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import f1_score, confusion_matrix
+from sklearn.metrics import f1_score, confusion_matrix, roc_curve, auc
 
 pd.set_option('display.width', 200)
 sns.set_style('white')
@@ -105,6 +105,7 @@ def plot_feature_importance(features_list, forest):
 
 def classification_forest(X, y, features_list):
     groups = np.array([-9999, -1, 0, 0.5, 0.75, 1, 9999])
+    groups = np.array([-9999, 0.5, 1, 9999])
     labels = np.arange(groups.shape[0] - 1)
     y = pd.cut(y, groups, labels=labels)
 
@@ -113,9 +114,19 @@ def classification_forest(X, y, features_list):
     forest = RandomForestClassifier(n_estimators=100, random_state=43)
     forest.fit(X_tr, y_tr)
 
-    test_predictions = forest.predict(X_te)
-    bin_preds = test_predictions
-    bin_y_te = y_te
+    for roc_class in np.arange(0, groups.shape[0] - 1):
+        test_predictions = forest.predict(X_te)
+        bin_preds = test_predictions
+        bin_preds_proba = forest.predict_proba(X_te)[:, roc_class]
+        bin_y_te = y_te
+        r_fpr, r_tpr, _ = roc_curve((bin_y_te == roc_class) * 1, bin_preds_proba)
+
+        plt.figure()
+        plt.title('Class (%s-%s]' % (groups[roc_class], groups[roc_class + 1]))
+        r_auc = auc(r_fpr, r_tpr)
+        plt.plot(r_fpr, r_tpr, label='AUC: %s' % r_auc)
+        plt.legend()
+        plt.show(block=False)
 
     print(f'F1 score: {f1_score(bin_y_te, bin_preds, average="macro")}')
 
