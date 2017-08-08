@@ -173,6 +173,21 @@ def regression_forest(X, y, features_list):
     plot_feature_importance(features_list, forest)
     plt.show()
 
+    return forest
+
+
+def select_n_best_predicted_strategies(model, pnl_pairs, features_list, n=100):
+    strategy_list = pnl_pairs.columns
+    X = create_inputs(pnl_pairs, features_list)
+
+    predicted_sharpe = model.predict(X)
+    strategy_sharpe_pairs = [(strategy, predicted_sharpe[i])
+                             for i, strategy in enumerate(strategy_list)]
+
+    strategy_sharpe_pairs.sort(key=lambda pair: pair[1], reverse=True)
+
+    return strategy_sharpe_pairs[:n]
+
 
 def optimize(features, pairs, normalize=True, standardize=False, start=252*2, frequency=1):
     dates = pairs.index
