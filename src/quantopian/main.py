@@ -99,9 +99,15 @@ def plot_feature_importance(features_list, forest):
         'sharpe_ratio_last_30_days': '1M Sharpe Ratio',
         'sharpe_ratio_last_90_days': '3M Sharpe Ratio',
         'sharpe_ratio_last_150_days': '5M Sharpe Ratio',
+        'sharpe_ratio_first_trimester': 'Sharpe Ratio 1st trimester',
+        'sharpe_ratio_second_trimester': 'Sharpe Ratio 2nd trimester',
+        'sharpe_ratio_third_trimester': 'Sharpe Ratio 3rd trimester',
+        'sharpe_ratio_fourth_trimester': 'Sharpe Ratio 4th trimester',
         'sortino_ratio': 'Sortino',
         'trading_days': 'Trading Days (PnL != 0)',
-        'kurtosis': 'Kurtosis'
+        'kurtosis': 'Kurtosis',
+        'drawdown_pct': 'Percentage of drawdown periods',
+        'worst_drawdown_duration': 'Worst duration of drawdown'
     })
     plt.figure()
     feature_importances.sort_values().plot(kind='barh', xerr=std, title='Feature Importance')
@@ -189,7 +195,7 @@ def select_n_best_predicted_strategies(model, pnl_pairs, features_list, n=100):
     return strategy_sharpe_pairs[:n]
 
 
-def optimize(features, pairs, normalize=True, standardize=False, start=252*2, frequency=1):
+def optimize(features, pairs, normalize=True, standardize=False, start=252 * 2, frequency=1):
     dates = pairs.index
 
     result = []
@@ -247,7 +253,7 @@ def main():
                      ft.sharpe_ratio_last_30_days, ft.sharpe_ratio_last_90_days,
                      ft.sharpe_ratio_last_150_days)
 
-    features_csv = './data/2017-08-07-filtered-pairs-features.csv'
+    features_csv = './data/2017-08-08-filtered-pairs-features.csv'
 
     pairs = pd.read_csv('./data/2017-08-03-filtered-in-sample-pairs.csv', parse_dates=True, index_col=0)
 
@@ -283,9 +289,10 @@ def main():
     y = observations_scaled['OUTPUT']
 
     # classification_forest(X, y, features_list)
-    # regression_forest(X, y, features_list)
+    regression_forest(X, y, features_list)
 
-    optimize(observations_scaled, pairs)
+    # optimize(observations_scaled, pairs)
+
 
 if __name__ == '__main__':
     main()

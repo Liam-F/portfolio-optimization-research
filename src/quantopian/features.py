@@ -27,6 +27,32 @@ def sharpe_ratio(returns, periods=252):
     return np.sqrt(periods) * returns.mean() / std
 
 
+def sharpe_n_trimester(returns, n, periods=252):
+    returns = returns[-252:]
+    returns_count = returns.shape[0]
+    slice_size = returns_count // 4
+    if n < 4:
+        return sharpe_ratio(returns[(n - 1) * slice_size: n * slice_size])
+    else:
+        return sharpe_ratio(returns[(n - 1) * slice_size:])
+
+
+def sharpe_first_trimester(returns, periods=252):
+    return sharpe_n_trimester(returns, 1, periods=periods)
+
+
+def sharpe_second_trimester(returns, periods=252):
+    return sharpe_n_trimester(returns, 2, periods=periods)
+
+
+def sharpe_third_trimester(returns, periods=252):
+    return sharpe_n_trimester(returns, 3, periods=periods)
+
+
+def sharpe_fourth_trimester(returns, periods=252):
+    return sharpe_n_trimester(returns, 4, periods=periods)
+
+
 def sharpe_ratio_last_x(returns, time_period, periods=252):
     return sharpe_ratio(returns[-time_period:], periods=periods)
 
@@ -45,6 +71,10 @@ def sharpe_ratio_last_150_days(returns, periods=252):
 
 def sharpe_ratio_last_year(returns, periods=252):
     return sharpe_ratio_last_x(returns, 252, periods=252)
+
+
+def max_rolling_sharpe(returns, window=156, periods=252):
+    return returns.rolling(window).apply(sharpe_ratio).max()
 
 
 def annret(returns, periods=252):
@@ -126,6 +156,35 @@ def sortino_ratio(returns):
 
 def sortino_last_year(returns):
     return sortino_ratio(returns.iloc[-252:])
+
+
+def drawdown_pct(returns):
+    c_returns = returns.cumsum()
+    highs = c_returns.expanding().max()
+
+    drawdowns = c_returns - highs
+
+    return drawdowns[drawdowns < 0].count() / drawdowns.shape[0]
+
+
+def worst_drawdown_duration(returns):
+    c_returns = returns.cumsum()
+    highs = c_returns.expanding().max()
+
+    drawdowns = c_returns - highs
+    worst_duration = 0
+    is_underwater = False;
+    current_underwater_period = 0
+    for drawdown in drawdowns:
+        if drawdown == 0 and is_underwater:
+            is_underwater = False
+        if not is_underwater and drawdown < 0:
+            is_underwater = True
+            current_underwater_period = 0
+        if is_underwater and drawdown < 0:
+            current_underwater_period += 1
+        worst_duration = max(worst_duration, current_underwater_period)
+    return worst_duration
 
 
 def drawdown_area(returns):
