@@ -10,6 +10,8 @@ from sklearn.preprocessing import robust_scale, binarize
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import f1_score, confusion_matrix, roc_curve, auc, r2_score
 
+import tqdm
+
 pd.set_option('display.width', 200)
 sns.set_style('white')
 
@@ -112,6 +114,9 @@ def classification_forest(X, y, features_list):
     labels = np.arange(groups.shape[0] - 1)
     y = pd.cut(y, groups, labels=labels)
 
+    print('Members per Group')
+    print(y.value_counts())
+
     X_tr, X_te, y_tr, y_te = train_test_split(X, y, stratify=y, test_size=0.25, random_state=42)
 
     forest = RandomForestClassifier(n_estimators=100, random_state=43)
@@ -169,6 +174,56 @@ def regression_forest(X, y, features_list):
     plt.show()
 
 
+def optimize(features, pairs, normalize=True, standardize=False, start=252*2, frequency=1):
+    dates = pairs.index
+
+    result = []
+
+    orig_pairs = pairs.copy()
+
+    if standardize and normalize:
+        raise Exception("Make up your mind. Standardize or normalize (natural language or).")
+
+    # Should do it in the loop, but takes forever -.-'
+    if normalize:
+        pairs = pairs.copy().apply(lambda x: x / (np.max(x) - np.min(x)))
+
+    if standardize:
+        pairs = (pairs - pairs.mean()) / pairs.std()
+
+    print('Running portfolio')
+    for i in tqdm.tqdm(np.arange(start, dates.shape[0] - 1, frequency)):
+
+        train_set = pairs[i - start:i]
+        sharpes = train_set.mean() / train_set.std()
+
+        # if normalize:
+        #     train_set = train_set.apply(lambda x: x / (np.max(x) - np.min(x)))
+        #
+        # if standardize:
+        #     train_set = (train_set - train_set.mean()) / train_set.std()
+
+        selected_strategies = sharpes.sort_values(ascending=False).index[:20]
+
+        for j in range(i, i + frequency):
+            if j >= dates.shape[0] - 1:
+                continue
+
+            tomorrow = dates[j + 1]  # Select portfolio today, hold it tomorrow
+
+            pnl = orig_pairs.loc[tomorrow, selected_strategies].sum()
+
+            result.append([tomorrow, pnl])
+
+    result = pd.DataFrame(result, columns=['Date', 'PnL']).set_index('Date')
+
+    print(result.sort_values(by=['PnL']).head())
+
+    result.cumsum().plot()
+
+    plt.show()
+
+
 def main():
     features_list = (ft.trading_days, ft.sharpe_ratio, ft.sharpe_ratio_last_year, ft.annret, ft.annvol,
                      ft.skewness, ft.kurtosis, ft.information_ratio,
@@ -179,9 +234,10 @@ def main():
 
     features_csv = './data/2017-08-07-filtered-pairs-features.csv'
 
+    pairs = pd.read_csv('./data/2017-08-03-filtered-in-sample-pairs.csv', parse_dates=True, index_col=0)
+
     if not os.path.exists(features_csv):
-        print('File does not exist, creating and saving')
-        pairs = pd.read_csv('./data/2017-08-03-filtered-in-sample-pairs.csv', parse_dates=True, index_col=0)
+        print('File %s does not exist, creating and saving' % features_csv)
 
         X = create_inputs(pairs, features_list)
         y = create_outputs(pairs)
@@ -201,7 +257,7 @@ def main():
 
         observations_scaled.to_csv(features_csv)
     else:
-        print('File exists!')
+        print('File %s exists!' % features_csv)
         observations_scaled = pd.read_csv(features_csv, index_col=0)
 
     # Throw out observations which are more than 4 standard deviations away from the mean
@@ -212,8 +268,9 @@ def main():
     y = observations_scaled['OUTPUT']
 
     # classification_forest(X, y, features_list)
-    regression_forest(X, y, features_list)
+    # regression_forest(X, y, features_list)
 
+    optimize(observations_scaled, pairs)
 
 if __name__ == '__main__':
     main()
