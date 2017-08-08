@@ -61,7 +61,6 @@ def plot_confusion_matrix(cm, classes,
         print('Confusion matrix, without normalization')
 
     confusion = pd.DataFrame(cm, index=classes, columns=classes)
-    print('Confusion Matrix')
     print(confusion)
 
     thresh = cm.max() / 2.
@@ -72,8 +71,8 @@ def plot_confusion_matrix(cm, classes,
                  color="white" if cm[i, j] > thresh else "black")
 
     plt.tight_layout()
-    plt.ylabel('True label')
-    plt.xlabel('Predicted label')
+    plt.ylabel('True Sharpe (Out of Sample)')
+    plt.xlabel('Predicted Sharpe (In Sample)')
 
 
 def plot_feature_importance(features_list, forest):
@@ -125,7 +124,7 @@ def classification_forest(X, y, features_list):
 
     X_tr, X_te, y_tr, y_te = train_test_split(X, y, stratify=y, test_size=0.25, random_state=42)
 
-    forest = RandomForestClassifier(n_estimators=100, random_state=43)
+    forest = RandomForestClassifier(n_estimators=100, random_state=43, class_weight='balanced_subsample')
     forest.fit(X_tr, y_tr)
 
     for roc_class in np.arange(0, groups.shape[0] - 1):
@@ -195,7 +194,7 @@ def select_n_best_predicted_strategies(model, pnl_pairs, features_list, n=100):
     return strategy_sharpe_pairs[:n]
 
 
-def optimize(features, pairs, normalize=True, standardize=False, start=252 * 2, frequency=1):
+def optimize(features, pairs, normalize=True, standardize=False, start=252 * 2, frequency=5):
     dates = pairs.index
 
     result = []
