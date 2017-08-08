@@ -174,7 +174,7 @@ def regression_forest(X, y, features_list):
     plt.show()
 
 
-def optimize(features, pairs, normalize=True, standardize=False, start=252*2, frequency=1):
+def optimize(features, pairs, normalize=True, standardize=False, start=252*2, frequency=5):
     dates = pairs.index
 
     result = []
