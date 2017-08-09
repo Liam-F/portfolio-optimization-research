@@ -77,6 +77,10 @@ def max_rolling_sharpe(returns, window=156, periods=252):
     return returns.rolling(window).apply(sharpe_ratio).max()
 
 
+def highest_6_month_sharpe(returns, periods=252):
+    return max_rolling_sharpe(returns, window=156, periods=252)
+
+
 def annret(returns, periods=252):
     return periods * returns.mean()
 
@@ -159,6 +163,9 @@ def sortino_last_year(returns):
 
 
 def drawdown_pct(returns):
+    if returns.empty:
+        return np.nan
+
     c_returns = returns.cumsum()
     highs = c_returns.expanding().max()
 

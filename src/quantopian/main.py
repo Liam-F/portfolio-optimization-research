@@ -102,6 +102,7 @@ def plot_feature_importance(features_list, forest):
         'sharpe_ratio_second_trimester': 'Sharpe Ratio 2nd trimester',
         'sharpe_ratio_third_trimester': 'Sharpe Ratio 3rd trimester',
         'sharpe_ratio_fourth_trimester': 'Sharpe Ratio 4th trimester',
+        'highest_6_month_sharpe': 'Highest 6 month rolling window Sharpe',
         'sortino_ratio': 'Sortino',
         'trading_days': 'Trading Days (PnL != 0)',
         'kurtosis': 'Kurtosis',
