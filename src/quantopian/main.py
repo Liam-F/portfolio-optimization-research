@@ -154,7 +154,7 @@ def classification_forest(X, y, features_list):
     plt.show()
 
 
-def regression_forest(X, y, features_list):
+def regression_forest(X, y, features_list, plot=False):
     X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.25, random_state=42)
 
     forest = RandomForestRegressor(n_estimators=100, random_state=42)
@@ -165,8 +165,9 @@ def regression_forest(X, y, features_list):
 
     print(f'R2 score: {r2_score(te_real_values, te_predictions)}')
 
-    g = sns.jointplot(te_predictions, te_real_values, kind='reg')
-    g.ax_joint.plot([-7, 7], [-7, 7])
+    if plot:
+        g = sns.jointplot(te_predictions, te_real_values, kind='reg')
+        g.ax_joint.plot([-7, 7], [-7, 7])
 
     # Classification metrics
     bin_preds = binarize(te_predictions)
@@ -175,8 +176,9 @@ def regression_forest(X, y, features_list):
     print(f'F1 score: {f1_score(bin_real_values, bin_preds)}')
     print(f'Confusion matrix: {confusion_matrix(bin_real_values, bin_preds)}')
 
-    plot_feature_importance(features_list, forest)
-    plt.show()
+    if plot:
+        plot_feature_importance(features_list, forest)
+        plt.show(block=False)
 
     return forest
 
@@ -199,7 +201,8 @@ def select_n_best_predicted_strategies(model, pnl_pairs, features_list, n=100):
     return strategy_sharpe_pairs[:n]
 
 
-def portfolio_selection_simulation(pairs, strategy_selection_fn, start_date='2014', selection_frequency='BM', change_frequency='BMS'):
+def portfolio_selection_simulation(pairs, strategy_selection_fn, start_date='2014', selection_frequency='BM',
+                                   change_frequency='BMS'):
     start_date = pairs[start_date:].index[0]
     end_date = pairs[start_date:].index[-1]
 
@@ -276,11 +279,14 @@ def main():
     y = observations_scaled['OUTPUT']
 
     # classification_forest(X, y, features_list)
-    # regression_forest(X, y, features_list)
+    forest = regression_forest(X, y, features_list)
 
-    # optimize(observations_scaled, pairs, None, normalize=False, standardize=True)
+    # WARNING: this normalization is looking into the future
     pairs_scaled = pairs / pairs.std()
-    pnls = portfolio_selection_simulation(pairs, select_n_strategies_sharpe)
+    pnls = portfolio_selection_simulation(pairs_scaled, lambda x: select_n_strategies_sharpe(x, n=50))
+    fig = plt.figure()
+    plt.plot(pnls.cumsum())
+    plt.show()
 
 
 if __name__ == '__main__':
