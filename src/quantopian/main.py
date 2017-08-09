@@ -13,7 +13,6 @@ from sklearn.metrics import f1_score, confusion_matrix, roc_curve, auc, r2_score
 import tqdm
 
 pd.set_option('display.width', 200)
-sns.set_style('white')
 
 
 def filter_pairs(pairs):
@@ -182,6 +181,11 @@ def regression_forest(X, y, features_list):
     return forest
 
 
+def select_n_strategies_sharpe(pnl_pairs, n=100):
+    sharpes = pnl_pairs.apply(ft.sharpe_ratio_last_year)
+    return sharpes.sort_values(ascending=False).index[:n]
+
+
 def select_n_best_predicted_strategies(model, pnl_pairs, features_list, n=100):
     strategy_list = pnl_pairs.columns
     X = create_inputs(pnl_pairs, features_list)
@@ -195,54 +199,37 @@ def select_n_best_predicted_strategies(model, pnl_pairs, features_list, n=100):
     return strategy_sharpe_pairs[:n]
 
 
-def optimize(features, pairs, normalize=True, standardize=False, start=252 * 2, frequency=5):
-    dates = pairs.index
+def portfolio_selection_simulation(pairs, strategy_selection_fn, start_date='2014', selection_frequency='BM', change_frequency='BMS'):
+    start_date = pairs[start_date:].index[0]
+    end_date = pairs[start_date:].index[-1]
 
-    result = []
+    selection_dates = pd.date_range(start_date, end_date, freq=selection_frequency)
+    change_dates = pd.date_range(start_date, end_date, freq=change_frequency)
 
-    orig_pairs = pairs.copy()
+    shorter_freq = min(len(selection_dates), len(change_dates))
+    selection_dates = selection_dates[:shorter_freq]
+    change_dates = change_dates[:shorter_freq]
 
-    if standardize and normalize:
-        raise Exception("Make up your mind. Standardize or normalize (natural language or).")
+    # we want to select the strategies on the first day of operation
+    if start_date not in selection_dates:
+        selection_dates = selection_dates.union(pd.Index([start_date]))
+    if start_date not in change_dates:
+        change_dates = change_dates.union(pd.Index([start_date]))
 
-    # Should do it in the loop, but takes forever -.-'
-    if normalize:
-        pairs = pairs.copy().apply(lambda x: x / (np.max(x) - np.min(x)))
+    # do the strategy selection over the whole simulation period
+    selected_strategies = [strategy_selection_fn(pairs[:selection_date]) for selection_date in selection_dates]
 
-    if standardize:
-        pairs = (pairs - pairs.mean()) / pairs.std()
+    pnls = []
+    strategy_selection_index = 0
+    for date in pairs[start_date:].index:
+        if date in change_dates:
+            current_strategies = selected_strategies[strategy_selection_index]
+            strategy_selection_index += 1
+        # record daily pnl
+        daily_pnl = pairs.loc[date, current_strategies].sum()
+        pnls.append(daily_pnl)
 
-    print('Running portfolio')
-    for i in tqdm.tqdm(np.arange(start, dates.shape[0] - 1, frequency)):
-
-        train_set = pairs[i - start:i]
-        sharpes = train_set.mean() / train_set.std()
-
-        # if normalize:
-        #     train_set = train_set.apply(lambda x: x / (np.max(x) - np.min(x)))
-        #
-        # if standardize:
-        #     train_set = (train_set - train_set.mean()) / train_set.std()
-
-        selected_strategies = sharpes.sort_values(ascending=False).index[:20]
-
-        for j in range(i, i + frequency):
-            if j >= dates.shape[0] - 1:
-                continue
-
-            tomorrow = dates[j + 1]  # Select portfolio today, hold it tomorrow
-
-            pnl = orig_pairs.loc[tomorrow, selected_strategies].sum()
-
-            result.append([tomorrow, pnl])
-
-    result = pd.DataFrame(result, columns=['Date', 'PnL']).set_index('Date')
-
-    print(result.sort_values(by=['PnL']).head())
-
-    result.cumsum().plot()
-
-    plt.show()
+    return pd.Series(data=pnls, index=pairs[start_date:].index)
 
 
 def main():
@@ -289,9 +276,11 @@ def main():
     y = observations_scaled['OUTPUT']
 
     # classification_forest(X, y, features_list)
-    regression_forest(X, y, features_list)
+    # regression_forest(X, y, features_list)
 
-    # optimize(observations_scaled, pairs)
+    # optimize(observations_scaled, pairs, None, normalize=False, standardize=True)
+    pairs_scaled = pairs / pairs.std()
+    pnls = portfolio_selection_simulation(pairs, select_n_strategies_sharpe)
 
 
 if __name__ == '__main__':
