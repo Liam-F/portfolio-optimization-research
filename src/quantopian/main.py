@@ -209,15 +209,13 @@ def portfolio_selection_simulation(pairs, strategy_selection_fn, start_date='201
     selection_dates = pd.date_range(start_date, end_date, freq=selection_frequency)
     change_dates = pd.date_range(start_date, end_date, freq=change_frequency)
 
-    shorter_freq = min(len(selection_dates), len(change_dates))
-    selection_dates = selection_dates[:shorter_freq]
-    change_dates = change_dates[:shorter_freq]
-
     # we want to select the strategies on the first day of operation
     if start_date not in selection_dates:
         selection_dates = selection_dates.union(pd.Index([start_date]))
     if start_date not in change_dates:
         change_dates = change_dates.union(pd.Index([start_date]))
+
+    selection_dates = selection_dates[:len(change_dates)]
 
     # do the strategy selection over the whole simulation period
     selected_strategies = [strategy_selection_fn(pairs[:selection_date]) for selection_date in selection_dates]
