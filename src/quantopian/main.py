@@ -185,12 +185,17 @@ def regression_forest(X, y, features_list, plot=False):
 
 def select_n_strategies_sharpe(pnl_pairs, n=100):
     sharpes = pnl_pairs.apply(ft.sharpe_ratio_last_year)
-    return sharpes.sort_values(ascending=False).index[:n]
+    return sharpes.sort_values(ascending=False).index[:n].values
 
 
 def select_n_best_predicted_strategies(model, pnl_pairs, features_list, n=100):
     strategy_list = pnl_pairs.columns
     X = create_inputs(pnl_pairs, features_list)
+
+    # drop strategies with nan values in their features
+    mask = np.any(np.isnan(X), axis=1)
+    X = X[~mask]
+    strategy_list = strategy_list[~mask]
 
     predicted_sharpe = model.predict(X)
     strategy_sharpe_pairs = [(strategy, predicted_sharpe[i])
@@ -198,7 +203,7 @@ def select_n_best_predicted_strategies(model, pnl_pairs, features_list, n=100):
 
     strategy_sharpe_pairs.sort(key=lambda pair: pair[1], reverse=True)
 
-    return strategy_sharpe_pairs[:n]
+    return [strategy[0] for strategy in strategy_sharpe_pairs[:n]]
 
 
 def portfolio_selection_simulation(pairs, strategy_selection_fn, start_date='2014', selection_frequency='BM',
@@ -219,7 +224,7 @@ def portfolio_selection_simulation(pairs, strategy_selection_fn, start_date='201
 
     # do the strategy selection over the whole simulation period
     selected_strategies = [strategy_selection_fn(pairs[:selection_date]) for selection_date in selection_dates]
-    selected_strategies_series = pd.Series(data=[strategies.values for strategies in selected_strategies],
+    selected_strategies_series = pd.Series(data=selected_strategies,
                                            index=change_dates)
 
     pnls = []
@@ -281,11 +286,14 @@ def main():
 
     # WARNING: this normalization is looking into the future
     pairs_scaled = pairs / pairs.std()
-    pnls, selected_strategies = portfolio_selection_simulation(pairs_scaled,
-                                                               lambda x: select_n_strategies_sharpe(x, n=50))
+    # pnls, selected_strategies = portfolio_selection_simulation(pairs_scaled,
+    #                                                          lambda x: select_n_strategies_sharpe(x, n=50))
+    forest_selection = lambda pairs: select_n_best_predicted_strategies(forest, pairs, features_list)
+    pnls, selected_strategies = portfolio_selection_simulation(pairs_scaled, forest_selection)
     fig = plt.figure()
     plt.plot(pnls.cumsum())
     plt.show()
+    pass
 
 
 if __name__ == '__main__':
