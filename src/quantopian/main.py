@@ -219,18 +219,18 @@ def portfolio_selection_simulation(pairs, strategy_selection_fn, start_date='201
 
     # do the strategy selection over the whole simulation period
     selected_strategies = [strategy_selection_fn(pairs[:selection_date]) for selection_date in selection_dates]
+    selected_strategies_series = pd.Series(data=[strategies.values for strategies in selected_strategies],
+                                           index=change_dates)
 
     pnls = []
-    strategy_selection_index = 0
     for date in pairs[start_date:].index:
         if date in change_dates:
-            current_strategies = selected_strategies[strategy_selection_index]
-            strategy_selection_index += 1
+            current_strategies = selected_strategies_series.loc[date]
         # record daily pnl
         daily_pnl = pairs.loc[date, current_strategies].sum()
         pnls.append(daily_pnl)
 
-    return pd.Series(data=pnls, index=pairs[start_date:].index)
+    return pd.Series(data=pnls, index=pairs[start_date:].index), selected_strategies_series
 
 
 def main():
@@ -281,7 +281,8 @@ def main():
 
     # WARNING: this normalization is looking into the future
     pairs_scaled = pairs / pairs.std()
-    pnls = portfolio_selection_simulation(pairs_scaled, lambda x: select_n_strategies_sharpe(x, n=50))
+    pnls, selected_strategies = portfolio_selection_simulation(pairs_scaled,
+                                                               lambda x: select_n_strategies_sharpe(x, n=50))
     fig = plt.figure()
     plt.plot(pnls.cumsum())
     plt.show()
