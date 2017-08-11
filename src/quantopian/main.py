@@ -207,10 +207,11 @@ def select_n_best_predicted_strategies(model, pnl_pairs, features_list, n=100):
     return [strategy[0] for strategy in strategy_sharpe_pairs[:n]]
 
 
-def portfolio_selection_simulation(pairs, strategy_selection_fn, start_date='2014', selection_frequency='BM',
+def portfolio_selection_simulation(pairs, strategy_selection_fn, start_year='2014', selection_frequency='BM',
                                    change_frequency='BMS'):
-    start_date = pairs[start_date:].index[0]
+    start_date = pairs[start_year:].index[0]
     end_date = pairs[start_date:].index[-1]
+    scaled_pairs = pairs / pairs.std()
 
     selection_dates = pd.date_range(start_date, end_date, freq=selection_frequency)
     change_dates = pd.date_range(start_date, end_date, freq=change_frequency)
@@ -233,7 +234,7 @@ def portfolio_selection_simulation(pairs, strategy_selection_fn, start_date='201
         if date in change_dates:
             current_strategies = selected_strategies_series.loc[date]
         # record daily pnl
-        daily_pnl = pairs.loc[date, current_strategies].sum()
+        daily_pnl = scaled_pairs.loc[date, current_strategies].sum()
         pnls.append(daily_pnl)
 
     return pd.Series(data=pnls, index=pairs[start_date:].index), selected_strategies_series
@@ -250,7 +251,7 @@ def main():
     features_csv = './data/2017-08-08-filtered-pairs-features.csv'
 
     pairs = pd.read_csv('./data/2017-08-03-filtered-in-sample-pairs.csv', parse_dates=True, index_col=0)
-    pairs = pairs[pairs.columns[:10]]
+    # pairs = pairs[pairs.columns[:10]]
 
     if not os.path.exists(features_csv):
         print('File %s does not exist, creating and saving' % features_csv)
@@ -286,12 +287,17 @@ def main():
     # classification_forest(X, y, features_list)
     forest = regression_forest(X, y, features_list)
 
-    # WARNING: this normalization is looking into the future
-    pairs_scaled = pairs / pairs.std()
+    is_pairs = pd.read_csv('data/2017-08-03-in-sample-pairs.csv', parse_dates=True, index_col=0)
+    oos_pairs = pd.read_csv('data/2017-08-03-out-sample-pairs.csv', parse_dates=True, index_col=0)
+    full_pairs = pd.concat([is_pairs, oos_pairs])
+    # full_pairs = full_pairs[full_pairs.columns[:10]]
+
     # pnls, selected_strategies = portfolio_selection_simulation(pairs_scaled,
     #                                                          lambda x: select_n_strategies_sharpe(x, n=100))
     forest_selection = lambda pairs: select_n_best_predicted_strategies(forest, pairs, features_list)
-    pnls, selected_strategies = portfolio_selection_simulation(pairs_scaled, forest_selection)
+    pnls, selected_strategies = portfolio_selection_simulation(full_pairs[:'2016'], forest_selection, start_year='2016')
+
+    selected_strategies.to_csv('data/selected_strategies-forest-experiment-00.csv')
 
     print(f'Sharpe ratio of the portfolio over lifetime: {ft.sharpe_ratio(pnls)}')
 
