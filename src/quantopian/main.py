@@ -3,6 +3,7 @@ import pandas as pd
 import preprocessing as pr
 import features as ft
 import os
+import util
 import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
@@ -23,9 +24,14 @@ def filter_pairs(pairs):
 
 def create_inputs(pairs, features_list):
     nb_strategies = pairs.shape[1]
+    feature_names = [f.__name__ for f in features_list]
+
     X = np.zeros((nb_strategies, len(features_list)))
     for i, strategy in enumerate(pairs.columns):
-        X[i] = pr.compute_features(pairs['2013':'2014'][strategy], features_list)
+        X[i] = pr.compute_features(pairs[strategy], features_list)
+    X = pd.DataFrame(data=X, columns=feature_names, index=pairs.columns)
+    X = util.drop_nan_rows(X)
+    X[:] = robust_scale(X)
     return X
 
 
@@ -33,7 +39,7 @@ def create_outputs(pairs):
     nb_strategies = pairs.shape[1]
     y = np.zeros((nb_strategies, 1))
     for i, strategy in enumerate(pairs.columns):
-        y[i] = np.array([ft.sharpe_ratio(pairs['2015':'2015'][strategy])])
+        y[i] = np.array([ft.sharpe_ratio(pairs[strategy])])
     return y
 
 
@@ -189,13 +195,8 @@ def select_n_strategies_sharpe(pnl_pairs, n=100):
 
 
 def select_n_best_predicted_strategies(model, pnl_pairs, features_list, n=100):
-    strategy_list = pnl_pairs.columns
     X = create_inputs(pnl_pairs, features_list)
-
-    # drop strategies with nan values in their features
-    mask = np.any(np.isnan(X), axis=1)
-    X = X[~mask]
-    strategy_list = strategy_list[~mask]
+    strategy_list = X.index.values
 
     predicted_sharpe = model.predict(X)
     strategy_sharpe_pairs = [(strategy, predicted_sharpe[i])
@@ -249,6 +250,7 @@ def main():
     features_csv = './data/2017-08-08-filtered-pairs-features.csv'
 
     pairs = pd.read_csv('./data/2017-08-03-filtered-in-sample-pairs.csv', parse_dates=True, index_col=0)
+    pairs = pairs[pairs.columns[:10]]
 
     if not os.path.exists(features_csv):
         print('File %s does not exist, creating and saving' % features_csv)
@@ -287,9 +289,12 @@ def main():
     # WARNING: this normalization is looking into the future
     pairs_scaled = pairs / pairs.std()
     # pnls, selected_strategies = portfolio_selection_simulation(pairs_scaled,
-    #                                                          lambda x: select_n_strategies_sharpe(x, n=50))
+    #                                                          lambda x: select_n_strategies_sharpe(x, n=100))
     forest_selection = lambda pairs: select_n_best_predicted_strategies(forest, pairs, features_list)
     pnls, selected_strategies = portfolio_selection_simulation(pairs_scaled, forest_selection)
+
+    print(f'Sharpe ratio of the portfolio over lifetime: {ft.sharpe_ratio(pnls)}')
+
     fig = plt.figure()
     plt.plot(pnls.cumsum())
     plt.show()
