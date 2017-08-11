@@ -136,7 +136,7 @@ def portfolio_selection_simulation(pairs, strategy_selection_fn, start_year='201
                                    change_frequency='BMS'):
     start_date = pairs[start_year:].index[0]
     end_date = pairs[start_date:].index[-1]
-    scaled_pairs = pairs / pairs.std()
+    scaled_pairs = pairs / pairs['2015-02':'2015-12'].std()
 
     selection_dates = pd.date_range(start_date, end_date, freq=selection_frequency)
     change_dates = pd.date_range(start_date, end_date, freq=change_frequency)
@@ -163,6 +163,16 @@ def portfolio_selection_simulation(pairs, strategy_selection_fn, start_year='201
         pnls.append(daily_pnl)
 
     return pd.Series(data=pnls, index=pairs[start_date:].index), selected_strategies_series
+
+
+def compute_all_features(pairs, start_year='2013'):
+    start_date = pairs[start_year:]
+    end_date = pairs.index[-1]
+
+    range = pd.date_range(start_date, end_date)
+
+    for date in pd.date_range(start_date, end_date):
+        create_inputs(pai)
 
 
 def main():
@@ -217,12 +227,12 @@ def main():
     full_pairs = pd.concat([is_pairs, oos_pairs])
     # full_pairs = full_pairs[full_pairs.columns[:10]]
 
-    # pnls, selected_strategies = portfolio_selection_simulation(pairs_scaled,
-    #                                                          lambda x: select_n_strategies_sharpe(x, n=100))
+    # pnls, selected_strategies = portfolio_selection_simulation(full_pairs[:'2016'],
+    #                                                          lambda x: select_n_strategies_sharpe(x, n=100), start_year='2016')
     forest_selection = lambda pairs: select_n_best_predicted_strategies(forest, pairs, features_list)
     pnls, selected_strategies = portfolio_selection_simulation(full_pairs[:'2016'], forest_selection, start_year='2016')
 
-    selected_strategies.to_csv('data/selected_strategies-forest-experiment-00.csv')
+    selected_strategies.to_csv('data/selected_strategies-forest-experiment-01.csv')
 
     print(f'Sharpe ratio of the portfolio over lifetime: {ft.sharpe_ratio(pnls)}')
 
