@@ -4,12 +4,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
-import functools
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.metrics import f1_score, confusion_matrix, roc_curve, auc, r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import robust_scale, binarize
-from multiprocessing import Pool
 
 import features as ft
 import preprocessing as pr
@@ -25,7 +23,7 @@ def filter_pairs(pairs):
     )
 
 
-def create_inputs(pairs, features_list, end_date=None):
+def create_inputs(pairs, features_list, end_date=None, drop_nans=True, scale=True):
     if end_date:
         pairs = pairs[:end_date]
     nb_strategies = pairs.shape[1]
@@ -35,8 +33,10 @@ def create_inputs(pairs, features_list, end_date=None):
     for i, strategy in enumerate(pairs.columns):
         X[i] = pr.compute_features(pairs[strategy], features_list)
     X = pd.DataFrame(data=X, columns=feature_names, index=pairs.columns)
-    X = util.drop_nan_rows(X)
-    X[:] = robust_scale(X)
+    if drop_nans:
+        X = util.drop_nan_rows(X)
+    if scale:
+        X[:] = robust_scale(X)
     return X
 
 
@@ -124,7 +124,7 @@ def select_n_strategies_sharpe(pnl_pairs, n=100):
 
 
 def select_n_best_predicted_strategies(model, pnl_pairs, features_list, n=100):
-    X = create_inputs(pnl_pairs, features_list)
+    X = create_inputs(pnl_pairs, features_list, scale=True, drop_nans=True)
     strategy_list = X.index.values
 
     predicted_sharpe = model.predict(X)
@@ -169,49 +169,12 @@ def portfolio_selection_simulation(pairs, strategy_selection_fn, start_year='201
     return pd.Series(data=pnls, index=pairs[start_date:].index), selected_strategies_series
 
 
-def compute_all_features(pairs, features_list, start_year='2013', frequency='BMS'):
-    start_date = pairs[start_year:].index[0]
-    end_date = pairs.index[-1]
+def compute_training_dataset(features_path, features_list, pairs, X_tr_date_range, y_tr_date_range):
+    if not os.path.exists(features_path):
+        print('File %s does not exist, creating and saving' % features_path)
 
-    range = pd.date_range(start_date, end_date, freq=frequency)
-
-    strategy_index = []
-    date_index = []
-    values = []
-
-    with Pool(5) as p:
-        input_creation_fn = functools.partial(create_inputs, pairs, features_list)
-        Xs = p.map(input_creation_fn, range)
-
-    for i, date in enumerate(range):
-        X = Xs[i]
-        for strategy in X.index:
-            strategy_index.append(strategy)
-            date_index.append(date)
-            values.append(X.loc[strategy].values)
-    return pd.DataFrame(data=np.array(values).reshape(len(date_index), len(X.columns)),
-                        index=[date_index, strategy_index], columns=X.columns)
-
-
-def main():
-    experiment_number = 2
-
-    features_list = (ft.trading_days, ft.sharpe_ratio, ft.sharpe_ratio_last_year, ft.annret, ft.annvol,
-                     ft.skewness, ft.kurtosis, ft.information_ratio,
-                     ft.sharpe_std, ft.sortino_ratio, ft.drawdown_area, ft.max_drawdown, ft.calmar_ratio,
-                     ft.tail_ratio, ft.common_sense_ratio,
-                     ft.sharpe_ratio_last_30_days, ft.sharpe_ratio_last_90_days,
-                     ft.sharpe_ratio_last_150_days)
-
-    features_csv = './data/2017-08-08-filtered-pairs-features.csv'
-
-    pairs = pd.read_csv('./data/2017-08-03-filtered-in-sample-pairs.csv', parse_dates=True, index_col=0)
-
-    if not os.path.exists(features_csv):
-        print('File %s does not exist, creating and saving' % features_csv)
-
-        X = create_inputs(pairs, features_list)
-        y = create_outputs(pairs)
+        X = create_inputs(pairs[X_tr_date_range[0]:X_tr_date_range[1]], features_list, drop_nans=False, scale=False)
+        y = create_outputs(pairs[y_tr_date_range[0]])
 
         observations = pd.DataFrame(
             data=np.hstack([X, y]),
@@ -226,48 +189,67 @@ def main():
             index=observations.index
         )
 
-        observations_scaled.to_csv(features_csv)
+        observations_scaled.to_csv(features_path)
     else:
-        print('File %s exists!' % features_csv)
-        observations_scaled = pd.read_csv(features_csv, index_col=0)
+        print('File %s exists!' % features_path)
+        observations_scaled = pd.read_csv(features_path, index_col=0)
+    return observations_scaled
+
+
+def main():
+    experiment_number = 2
+
+    X_tr_date_range = ('2013', '2014')
+    y_tr_date_range = ('2015',)
+
+    features_list = (ft.trading_days, ft.sharpe_ratio, ft.sharpe_ratio_last_year, ft.annret, ft.annvol,
+                     ft.skewness, ft.kurtosis, ft.information_ratio,
+                     ft.sharpe_std, ft.sortino_ratio, ft.drawdown_area, ft.max_drawdown, ft.calmar_ratio,
+                     ft.tail_ratio, ft.common_sense_ratio,
+                     ft.sharpe_ratio_last_30_days, ft.sharpe_ratio_last_90_days,
+                     ft.sharpe_ratio_last_150_days)
+
+    features_csv = './data/2017-08-15-filtered-pairs-features.csv'
+
+    pairs = pd.read_csv('./data/2017-08-03-filtered-in-sample-pairs.csv', parse_dates=True, index_col=0)
+
+    observations_scaled = compute_training_dataset(features_csv, features_list, pairs, X_tr_date_range,
+                                                   y_tr_date_range)
 
     X = observations_scaled.drop(['OUTPUT'], axis=1)
     y = observations_scaled['OUTPUT']
 
-    # forest = regression_forest(X, y, features_list)
+    forest = regression_forest(X, y, features_list)
 
     is_pairs = pd.read_csv('data/2017-08-03-in-sample-pairs.csv', parse_dates=True, index_col=0)
     oos_pairs = pd.read_csv('data/2017-08-03-out-sample-pairs.csv', parse_dates=True, index_col=0)
     full_pairs = pd.concat([is_pairs, oos_pairs])
     # full_pairs = full_pairs[full_pairs.columns[:10]]
 
-    all_dates_features = compute_all_features(full_pairs, features_list, start_year='2014', frequency='BMS')
-    all_dates_features.to_csv('data/eom-all-pairs-features-2014-2016.csv')
+    control_pnls, control_selected_strategies = portfolio_selection_simulation(full_pairs[:'2016'],
+                                                                               lambda x: select_n_strategies_sharpe(x,
+                                                                                                                    n=100),
+                                                                               start_year='2016')
 
-    # control_pnls, control_selected_strategies = portfolio_selection_simulation(full_pairs[:'2016'],
-    #                                                                            lambda x: select_n_strategies_sharpe(x,
-    #                                                                                                                 n=100),
-    #                                                                            start_year='2016')
-    #
-    # forest_selection = lambda pairs: select_n_best_predicted_strategies(forest, pairs, features_list)
-    # pnls, selected_strategies = portfolio_selection_simulation(full_pairs[:'2016'], forest_selection, start_year='2016')
-    #
-    # experiment_number_suffix = '{:02d}'.format(experiment_number)
-    #
-    # experiment_dir_path = f'data/experiment-{experiment_number_suffix}'
-    # if not os.path.exists(experiment_dir_path):
-    #     os.mkdir(experiment_dir_path)
-    #
-    # selected_strategies.to_csv(
-    #     f'{experiment_dir_path}/selected_strategies-experiment-{experiment_number_suffix}-forest.csv')
-    # control_selected_strategies.to_csv(
-    #     f'{experiment_dir_path}/selected_strategies-experiment-{experiment_number_suffix}-control.csv')
-    #
-    # pnls.to_csv(f'{experiment_dir_path}/pnls-experiment-{experiment_number_suffix}-forest.csv')
-    # control_pnls.to_csv(f'{experiment_dir_path}/pnls-experiment-{experiment_number_suffix}-control.csv')
-    #
-    # print(f'Sharpe ratio of forest portfolio: {ft.sharpe_ratio(pnls)}')
-    # print(f'Sharpe ratio of control portfolio: {ft.sharpe_ratio(control_pnls)}')
+    forest_selection = lambda pairs: select_n_best_predicted_strategies(forest, pairs, features_list)
+    pnls, selected_strategies = portfolio_selection_simulation(full_pairs[:'2016'], forest_selection, start_year='2016')
+
+    experiment_number_suffix = '{:02d}'.format(experiment_number)
+
+    experiment_dir_path = f'data/experiment-{experiment_number_suffix}'
+    if not os.path.exists(experiment_dir_path):
+        os.mkdir(experiment_dir_path)
+
+    selected_strategies.to_csv(
+        f'{experiment_dir_path}/selected_strategies-experiment-{experiment_number_suffix}-forest.csv')
+    control_selected_strategies.to_csv(
+        f'{experiment_dir_path}/selected_strategies-experiment-{experiment_number_suffix}-control.csv')
+
+    pnls.to_csv(f'{experiment_dir_path}/pnls-experiment-{experiment_number_suffix}-forest.csv')
+    control_pnls.to_csv(f'{experiment_dir_path}/pnls-experiment-{experiment_number_suffix}-control.csv')
+
+    print(f'Sharpe ratio of forest portfolio: {ft.sharpe_ratio(pnls)}')
+    print(f'Sharpe ratio of control portfolio: {ft.sharpe_ratio(control_pnls)}')
 
 
 if __name__ == '__main__':
