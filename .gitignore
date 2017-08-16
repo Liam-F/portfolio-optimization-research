@@ -168,3 +168,5 @@ ENV/
 .idea/*
 
 pairplot*.png
+archive/
+*.ipynb

@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
+import functools
+from multiprocessing import Pool
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.metrics import f1_score, confusion_matrix, roc_curve, auc, r2_score
 from sklearn.model_selection import train_test_split
@@ -118,13 +120,23 @@ def regression_forest(X, y, features_list, plot=False):
     return forest
 
 
-def select_n_strategies_sharpe(pnl_pairs, n=100):
+def select_n_strategies_sharpe(pnl_pairs, n=100, end_date=None):
+    if end_date:
+        pnl_pairs = pnl_pairs[:end_date]
     sharpes = pnl_pairs.apply(ft.sharpe_ratio_last_year)
     return sharpes.sort_values(ascending=False).index[:n].values
 
 
-def select_n_best_predicted_strategies(model, pnl_pairs, features_list, n=100):
-    X = create_inputs(pnl_pairs, features_list, scale=True, drop_nans=True)
+def select_n_best_predicted_strategies(model, pnl_pairs, features_list, n=100, end_date=None):
+    if end_date:
+        pnl_pairs = pnl_pairs[:end_date]
+    end_date = pnl_pairs.index[-1]
+    precomputed_features_file = f'data/precomputed-features/{end_date.date()}'
+    if os.path.exists(precomputed_features_file):
+        X = pd.read_csv(precomputed_features_file, parse_dates=True, index_col=0)
+    else:
+        X = create_inputs(pnl_pairs, features_list, scale=True, drop_nans=True)
+        X.to_csv(precomputed_features_file)
     strategy_list = X.index.values
 
     predicted_sharpe = model.predict(X)
@@ -196,8 +208,22 @@ def compute_training_dataset(features_path, features_list, pairs, X_tr_date_rang
     return observations_scaled
 
 
+def save_experiment_results(pnls, control_pnls, selected_strategies, control_selected_strategies, experiment_number):
+    experiment_number_suffix = '{:02d}'.format(experiment_number)
+    experiment_dir_path = f'data/experiment-{experiment_number_suffix}'
+    if not os.path.exists(experiment_dir_path):
+        os.mkdir(experiment_dir_path)
+    selected_strategies.to_csv(
+        f'{experiment_dir_path}/selected_strategies-experiment-{experiment_number_suffix}-forest.csv')
+    control_selected_strategies.to_csv(
+        f'{experiment_dir_path}/selected_strategies-experiment-{experiment_number_suffix}-control.csv')
+    pnls.to_csv(f'{experiment_dir_path}/pnls-experiment-{experiment_number_suffix}-forest.csv')
+    control_pnls.to_csv(f'{experiment_dir_path}/pnls-experiment-{experiment_number_suffix}-control.csv')
+
+
 def main():
     experiment_number = 2
+    save_experiment = False
 
     X_tr_date_range = ('2013', '2014')
     y_tr_date_range = ('2015',)
@@ -234,19 +260,8 @@ def main():
     forest_selection = lambda pairs: select_n_best_predicted_strategies(forest, pairs, features_list)
     pnls, selected_strategies = portfolio_selection_simulation(full_pairs[:'2016'], forest_selection, start_year='2016')
 
-    experiment_number_suffix = '{:02d}'.format(experiment_number)
-
-    experiment_dir_path = f'data/experiment-{experiment_number_suffix}'
-    if not os.path.exists(experiment_dir_path):
-        os.mkdir(experiment_dir_path)
-
-    selected_strategies.to_csv(
-        f'{experiment_dir_path}/selected_strategies-experiment-{experiment_number_suffix}-forest.csv')
-    control_selected_strategies.to_csv(
-        f'{experiment_dir_path}/selected_strategies-experiment-{experiment_number_suffix}-control.csv')
-
-    pnls.to_csv(f'{experiment_dir_path}/pnls-experiment-{experiment_number_suffix}-forest.csv')
-    control_pnls.to_csv(f'{experiment_dir_path}/pnls-experiment-{experiment_number_suffix}-control.csv')
+    if save_experiment:
+        save_experiment_results(pnls, control_pnls, selected_strategies, control_selected_strategies, experiment_number)
 
     print(f'Sharpe ratio of forest portfolio: {ft.sharpe_ratio(pnls)}')
     print(f'Sharpe ratio of control portfolio: {ft.sharpe_ratio(control_pnls)}')
