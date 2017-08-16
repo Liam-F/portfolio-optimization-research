@@ -91,8 +91,8 @@ def classification_forest(X, y, features_list):
     plt.show()
 
 
-def regression_forest(X, y, features_list, plot=False):
-    X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.25, random_state=42)
+def regression_forest(X, y, features_list, plot=False, seed=42):
+    X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.25, random_state=seed)
 
     forest = RandomForestRegressor(n_estimators=100, random_state=42)
     forest.fit(X_tr, y_tr)
@@ -224,6 +224,7 @@ def save_experiment_results(pnls, control_pnls, selected_strategies, control_sel
 def main():
     experiment_number = 2
     save_experiment = False
+    seed_range = 100
 
     X_tr_date_range = ('2013', '2014')
     y_tr_date_range = ('2015',)
@@ -245,26 +246,43 @@ def main():
     X = observations_scaled.drop(['OUTPUT'], axis=1)
     y = observations_scaled['OUTPUT']
 
-    forest = regression_forest(X, y, features_list)
+    sharpes = np.zeros((seed_range, 1))
+    control_sharpes = np.zeros((seed_range, 1))
+    for seed in range(seed_range):
+        forest = regression_forest(X, y, features_list, seed=seed)
 
-    is_pairs = pd.read_csv('data/2017-08-03-in-sample-pairs.csv', parse_dates=True, index_col=0)
-    oos_pairs = pd.read_csv('data/2017-08-03-out-sample-pairs.csv', parse_dates=True, index_col=0)
-    full_pairs = pd.concat([is_pairs, oos_pairs])
-    # full_pairs = full_pairs[full_pairs.columns[:10]]
+        is_pairs = pd.read_csv('data/2017-08-03-in-sample-pairs.csv', parse_dates=True, index_col=0)
+        oos_pairs = pd.read_csv('data/2017-08-03-out-sample-pairs.csv', parse_dates=True, index_col=0)
+        full_pairs = pd.concat([is_pairs, oos_pairs])
+        # full_pairs = full_pairs[full_pairs.columns[:10]]
 
-    control_pnls, control_selected_strategies = portfolio_selection_simulation(full_pairs[:'2016'],
-                                                                               lambda x: select_n_strategies_sharpe(x,
-                                                                                                                    n=100),
-                                                                               start_year='2016')
+        control_pnls, control_selected_strategies = portfolio_selection_simulation(full_pairs[:'2016'],
+                                                                                   lambda x: select_n_strategies_sharpe(
+                                                                                       x,
+                                                                                       n=100),
+                                                                                   start_year='2016')
 
-    forest_selection = lambda pairs: select_n_best_predicted_strategies(forest, pairs, features_list)
-    pnls, selected_strategies = portfolio_selection_simulation(full_pairs[:'2016'], forest_selection, start_year='2016')
+        forest_selection = lambda pairs: select_n_best_predicted_strategies(forest, pairs, features_list)
+        pnls, selected_strategies = portfolio_selection_simulation(full_pairs[:'2016'], forest_selection,
+                                                                   start_year='2016')
 
-    if save_experiment:
-        save_experiment_results(pnls, control_pnls, selected_strategies, control_selected_strategies, experiment_number)
+        if save_experiment:
+            save_experiment_results(pnls, control_pnls, selected_strategies, control_selected_strategies,
+                                    experiment_number)
 
-    print(f'Sharpe ratio of forest portfolio: {ft.sharpe_ratio(pnls)}')
-    print(f'Sharpe ratio of control portfolio: {ft.sharpe_ratio(control_pnls)}')
+        sharpe = ft.sharpe_ratio(pnls)
+        control_sharpe = ft.sharpe_ratio(control_pnls)
+
+        sharpes[seed] = sharpe
+        control_sharpes[seed] = control_sharpe
+
+        print(f'Sharpe ratio of forest portfolio: {sharpe}')
+        print(f'Sharpe ratio of control portfolio: {control_sharpe}')
+
+    results = pd.DataFrame(data=np.hstack([sharpes, control_sharpes]), columns=['forest_sharpe, control_sharpe'])
+    results['difference'] = results['forest_sharpe'] - results['control_sharpe']
+    print(results.describe())
+    results.to_csv('data/noise-test.csv')
 
 
 if __name__ == '__main__':
