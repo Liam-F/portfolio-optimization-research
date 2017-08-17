@@ -94,8 +94,8 @@ def classification_forest(X, y, features_list):
 def regression_forest(X, y, features_list, plot=False, seed=42):
     X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.25, random_state=seed)
 
-    forest = RandomForestRegressor(n_estimators=100, random_state=42)
-    forest.fit(X_tr, y_tr)
+    forest = RandomForestRegressor(n_estimators=100, random_state=seed, n_jobs=-1)
+    forest.fit(X, y)
 
     te_predictions = forest.predict(X_te).reshape(-1, 1)
     te_real_values = y_te.values.reshape(-1, 1)
@@ -120,18 +120,18 @@ def regression_forest(X, y, features_list, plot=False, seed=42):
     return forest
 
 
-def select_n_strategies_sharpe(pnl_pairs, n=100, end_date=None):
-    if end_date:
-        pnl_pairs = pnl_pairs[:end_date]
+def select_n_strategies_sharpe(pnl_pairs, limit_date=None, n=100):
+    if limit_date:
+        pnl_pairs = pnl_pairs[:limit_date]
     sharpes = pnl_pairs.apply(ft.sharpe_ratio_last_year)
     return sharpes.sort_values(ascending=False).index[:n].values
 
 
-def select_n_best_predicted_strategies(model, pnl_pairs, features_list, n=100, end_date=None):
-    if end_date:
-        pnl_pairs = pnl_pairs[:end_date]
-    end_date = pnl_pairs.index[-1]
-    precomputed_features_file = f'data/precomputed-features/{end_date.date()}'
+def select_n_best_predicted_strategies(model, features_list, pnl_pairs, limit_date=None, n=100):
+    if limit_date:
+        pnl_pairs = pnl_pairs[:limit_date]
+    limit_date = pnl_pairs.index[-1]
+    precomputed_features_file = f'data/precomputed-features/{limit_date.date()}'
     if os.path.exists(precomputed_features_file):
         X = pd.read_csv(precomputed_features_file, parse_dates=True, index_col=0)
     else:
@@ -165,8 +165,11 @@ def portfolio_selection_simulation(pairs, strategy_selection_fn, start_year='201
 
     selection_dates = selection_dates[:len(change_dates)]
 
-    # do the strategy selection over the whole simulation period
-    selected_strategies = [strategy_selection_fn(pairs[:selection_date]) for selection_date in selection_dates]
+    strategy_selection_fn_partial = functools.partial(strategy_selection_fn, pairs)
+    with Pool() as p:
+        # do the strategy selection over the whole simulation period
+        selected_strategies = p.map(strategy_selection_fn_partial, selection_dates)
+
     selected_strategies_series = pd.Series(data=selected_strategies,
                                            index=change_dates)
 
@@ -246,23 +249,21 @@ def main():
     X = observations_scaled.drop(['OUTPUT'], axis=1)
     y = observations_scaled['OUTPUT']
 
+    full_pairs = pd.read_csv('./data/2017-08-17-full-pairs-filtered.csv', parse_dates=True, index_col=0)
+
     sharpes = np.zeros((seed_range, 1))
     control_sharpes = np.zeros((seed_range, 1))
+    control_already_computed = False
     for seed in range(seed_range):
         forest = regression_forest(X, y, features_list, seed=seed)
 
-        is_pairs = pd.read_csv('data/2017-08-03-in-sample-pairs.csv', parse_dates=True, index_col=0)
-        oos_pairs = pd.read_csv('data/2017-08-03-out-sample-pairs.csv', parse_dates=True, index_col=0)
-        full_pairs = pd.concat([is_pairs, oos_pairs])
-        # full_pairs = full_pairs[full_pairs.columns[:10]]
+        if control_already_computed is False:
+            control_pnls, control_selected_strategies = portfolio_selection_simulation(full_pairs[:'2016'],
+                                                                                       select_n_strategies_sharpe,
+                                                                                       start_year='2016')
+            control_already_computed = True
 
-        control_pnls, control_selected_strategies = portfolio_selection_simulation(full_pairs[:'2016'],
-                                                                                   lambda x: select_n_strategies_sharpe(
-                                                                                       x,
-                                                                                       n=100),
-                                                                                   start_year='2016')
-
-        forest_selection = lambda pairs: select_n_best_predicted_strategies(forest, pairs, features_list)
+        forest_selection = functools.partial(select_n_best_predicted_strategies, forest, features_list)
         pnls, selected_strategies = portfolio_selection_simulation(full_pairs[:'2016'], forest_selection,
                                                                    start_year='2016')
 
@@ -282,7 +283,7 @@ def main():
     results = pd.DataFrame(data=np.hstack([sharpes, control_sharpes]), columns=['forest_sharpe', 'control_sharpe'])
     results['difference'] = results['forest_sharpe'] - results['control_sharpe']
     print(results.describe())
-    results.to_csv('data/noise-test.csv')
+    results.to_csv('data/noise-test-02.csv')
 
 
 if __name__ == '__main__':
