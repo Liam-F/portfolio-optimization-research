@@ -152,7 +152,7 @@ def portfolio_selection_simulation(pairs, strategy_selection_fn, start_year='201
                                    change_frequency='BMS'):
     start_date = pairs[start_year:].index[0]
     end_date = pairs[start_date:].index[-1]
-    scaled_pairs = pairs / pairs['2015-02':'2015-12'].std()
+    scaled_pairs = pairs / pairs['2015-02':'2015-12'].std()  # Franky-like scaling (excludes Swiss-Franc event).
 
     selection_dates = pd.date_range(start_date, end_date, freq=selection_frequency)
     change_dates = pd.date_range(start_date, end_date, freq=change_frequency)
