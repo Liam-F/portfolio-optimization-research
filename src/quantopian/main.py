@@ -279,7 +279,7 @@ def main():
         print(f'Sharpe ratio of forest portfolio: {sharpe}')
         print(f'Sharpe ratio of control portfolio: {control_sharpe}')
 
-    results = pd.DataFrame(data=np.hstack([sharpes, control_sharpes]), columns=['forest_sharpe, control_sharpe'])
+    results = pd.DataFrame(data=np.hstack([sharpes, control_sharpes]), columns=['forest_sharpe', 'control_sharpe'])
     results['difference'] = results['forest_sharpe'] - results['control_sharpe']
     print(results.describe())
     results.to_csv('data/noise-test.csv')
