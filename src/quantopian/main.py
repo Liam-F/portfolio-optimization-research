@@ -242,6 +242,8 @@ def main():
     training_data_file = './data/training_data.csv'
 
     pairs = pd.read_csv('./data/all-pairs.csv', parse_dates=True, index_col=0)
+    pairs = pairs['2013':]
+    pairs = pr.filter_on_nb_trades(pairs, percent=0.3)  # filter trades that have more than 30% of non trading days
 
     observations_scaled = compute_training_dataset(training_data_file, features_list, pairs['2013':'2015'],
                                                    X_tr_date_range,
@@ -282,7 +284,7 @@ def main():
     results = pd.DataFrame(data=np.hstack([sharpes, control_sharpes]), columns=['forest_sharpe', 'control_sharpe'])
     results['difference'] = results['forest_sharpe'] - results['control_sharpe']
     print(results.describe())
-    # results.to_csv('data/noise-test-05.csv')
+    results.to_csv('data/noise-test/noise-test-05.csv')
 
 
 if __name__ == '__main__':

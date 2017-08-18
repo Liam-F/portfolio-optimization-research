@@ -10,7 +10,7 @@ def filter_on_rolling_sharpe(returns, threshold, window=252):
 def filter_on_nb_trades(returns, percent=0.1):
     number_days = returns.shape[0]
     threshold = int(number_days * percent)
-    return returns[returns.columns[returns[returns == 0].count() > threshold]]
+    return returns[returns.columns[returns[returns == 0].count() < threshold]]
 
 
 def compute_features(returns, feature_functions):
