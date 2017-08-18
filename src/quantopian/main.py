@@ -239,17 +239,16 @@ def main():
                      ft.sharpe_ratio_last_30_days, ft.sharpe_ratio_last_90_days,
                      ft.sharpe_ratio_last_150_days)
 
-    features_csv = './data/2017-08-15-filtered-pairs-features.csv'
+    training_data_file = './data/training_data.csv'
 
-    pairs = pd.read_csv('./data/2017-08-03-filtered-in-sample-pairs.csv', parse_dates=True, index_col=0)
+    pairs = pd.read_csv('./data/all-pairs.csv', parse_dates=True, index_col=0)
 
-    observations_scaled = compute_training_dataset(features_csv, features_list, pairs, X_tr_date_range,
+    observations_scaled = compute_training_dataset(training_data_file, features_list, pairs['2013':'2015'],
+                                                   X_tr_date_range,
                                                    y_tr_date_range)
 
     X = observations_scaled.drop(['OUTPUT'], axis=1)
     y = observations_scaled['OUTPUT']
-
-    full_pairs = pd.read_csv('./data/2017-08-17-full-pairs-filtered.csv', parse_dates=True, index_col=0)
 
     sharpes = np.zeros((seed_range, 1))
     control_sharpes = np.zeros((seed_range, 1))
@@ -258,13 +257,13 @@ def main():
         forest = regression_forest(X, y, features_list, seed=seed)
 
         if control_already_computed is False:
-            control_pnls, control_selected_strategies = portfolio_selection_simulation(full_pairs[:'2016'],
+            control_pnls, control_selected_strategies = portfolio_selection_simulation(pairs['2013':'2016'],
                                                                                        select_n_strategies_sharpe,
                                                                                        start_year='2016')
             control_already_computed = True
 
         forest_selection = functools.partial(select_n_best_predicted_strategies, forest, features_list)
-        pnls, selected_strategies = portfolio_selection_simulation(full_pairs[:'2016'], forest_selection,
+        pnls, selected_strategies = portfolio_selection_simulation(pairs['2013':'2016'], forest_selection,
                                                                    start_year='2016')
 
         if save_experiment:
@@ -283,7 +282,7 @@ def main():
     results = pd.DataFrame(data=np.hstack([sharpes, control_sharpes]), columns=['forest_sharpe', 'control_sharpe'])
     results['difference'] = results['forest_sharpe'] - results['control_sharpe']
     print(results.describe())
-    results.to_csv('data/noise-test-02.csv')
+    # results.to_csv('data/noise-test-05.csv')
 
 
 if __name__ == '__main__':

@@ -3,7 +3,7 @@ import pandas as pd
 import statsmodels.api as sm
 
 
-def load_spy(fn='./data/es-all.csv'):
+def load_spy(fn='./data/instruments/es-all.csv'):
     data = pd.read_csv(fn, parse_dates=True, index_col=0)[['Adj Close']].rename(columns={'Adj Close': 'spy'})
 
     data['spy_returns'] = data['spy'].pct_change()
