@@ -184,17 +184,15 @@ def portfolio_selection_simulation(pairs, strategy_selection_fn, start_year='201
     return pd.Series(data=pnls, index=pairs[start_date:].index), selected_strategies_series
 
 
-def compute_training_dataset(features_path, features_list, pairs, X_tr_date_range, y_tr_date_range):
-    if not os.path.exists(features_path):
-        print('File %s does not exist, creating and saving' % features_path)
-
-        X = create_inputs(pairs[X_tr_date_range[0]:X_tr_date_range[1]], features_list, drop_nans=False, scale=False)
-        y = create_outputs(pairs[y_tr_date_range[0]])
+def compute_training_dataset(features_list, X_pairs, y_pairs, features_path=None):
+    if (features_path is None) or (not os.path.exists(features_path)):
+        X = create_inputs(X_pairs, features_list, drop_nans=False, scale=False)
+        y = create_outputs(y_pairs)
 
         observations = pd.DataFrame(
             data=np.hstack([X, y]),
             columns=[f.__name__ for f in features_list] + ['OUTPUT'],
-            index=pairs.columns
+            index=X_pairs.columns
         ).dropna()
         observations = observations[np.all(np.isfinite(observations), axis=1)]
 
@@ -204,9 +202,9 @@ def compute_training_dataset(features_path, features_list, pairs, X_tr_date_rang
             index=observations.index
         )
 
-        observations_scaled.to_csv(features_path)
+        if features_path:
+            observations_scaled.to_csv(features_path)
     else:
-        print('File %s exists!' % features_path)
         observations_scaled = pd.read_csv(features_path, index_col=0)
     return observations_scaled
 
@@ -229,9 +227,6 @@ def main():
     save_experiment = False
     seed_range = 100
 
-    X_tr_date_range = ('2013', '2014')
-    y_tr_date_range = ('2015',)
-
     features_list = (ft.trading_days, ft.sharpe_ratio, ft.sharpe_ratio_last_year, ft.annret, ft.annvol,
                      ft.skewness, ft.kurtosis, ft.information_ratio,
                      ft.sharpe_std, ft.sortino_ratio, ft.drawdown_area, ft.max_drawdown, ft.calmar_ratio,
@@ -245,9 +240,8 @@ def main():
     pairs = pairs['2013':]
     pairs = pr.filter_on_nb_trades(pairs, percent=0.3)  # filter trades that have more than 30% of non trading days
 
-    observations_scaled = compute_training_dataset(training_data_file, features_list, pairs['2013':'2015'],
-                                                   X_tr_date_range,
-                                                   y_tr_date_range)
+    observations_scaled = compute_training_dataset(features_list, pairs['2013':'2014'], pairs['2015'],
+                                                   training_data_file)
 
     X = observations_scaled.drop(['OUTPUT'], axis=1)
     y = observations_scaled['OUTPUT']
