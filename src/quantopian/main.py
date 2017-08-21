@@ -225,7 +225,6 @@ def save_experiment_results(pnls, control_pnls, selected_strategies, control_sel
 def main():
     experiment_number = 2
     save_experiment = False
-    seed_range = 100
 
     features_list = (ft.trading_days, ft.sharpe_ratio, ft.sharpe_ratio_last_year, ft.annret, ft.annvol,
                      ft.skewness, ft.kurtosis, ft.information_ratio,
@@ -240,45 +239,45 @@ def main():
     pairs = pairs['2013':]
     pairs = pr.filter_on_nb_trades(pairs, percent=0.3)  # filter trades that have more than 30% of non trading days
 
-    observations_scaled = compute_training_dataset(features_list, pairs['2013':'2014'], pairs['2015'],
-                                                   training_data_file)
+    min_window_X = 312
+    window_y = 60
+    training_pairs = pairs['2013':'2015-12']
+    nb_rows = training_pairs.index.shape[0]
+
+    training_set = []
+    for i in range(min_window_X, nb_rows - window_y):
+        X_data = training_pairs[:i + 1]
+        y_data = training_pairs[i + 1:i + window_y + 1]
+        training_set.append(compute_training_dataset(features_list, X_data, y_data))
+    assert X_data.shape[0] + y_data.shape[0] == nb_rows
+    observations_scaled = pd.concat(training_set)
+    observations_scaled.to_csv('data/training_data_monthly.csv')
+
+    # observations_scaled = compute_training_dataset(features_list, pairs['2013':'2014'], pairs['2015'],
+    #                                                training_data_file)
 
     X = observations_scaled.drop(['OUTPUT'], axis=1)
     y = observations_scaled['OUTPUT']
 
-    sharpes = np.zeros((seed_range, 1))
-    control_sharpes = np.zeros((seed_range, 1))
-    control_already_computed = False
-    for seed in range(seed_range):
-        forest = regression_forest(X, y, features_list, seed=seed)
+    forest = regression_forest(X, y, features_list)
 
-        if control_already_computed is False:
-            control_pnls, control_selected_strategies = portfolio_selection_simulation(pairs['2013':'2016'],
-                                                                                       select_n_strategies_sharpe,
-                                                                                       start_year='2016')
-            control_already_computed = True
+    control_pnls, control_selected_strategies = portfolio_selection_simulation(pairs['2013':'2016'],
+                                                                               select_n_strategies_sharpe,
+                                                                               start_year='2016')
 
-        forest_selection = functools.partial(select_n_best_predicted_strategies, forest, features_list)
-        pnls, selected_strategies = portfolio_selection_simulation(pairs['2013':'2016'], forest_selection,
-                                                                   start_year='2016')
+    forest_selection = functools.partial(select_n_best_predicted_strategies, forest, features_list)
+    pnls, selected_strategies = portfolio_selection_simulation(pairs['2013':'2016'], forest_selection,
+                                                               start_year='2016')
 
-        if save_experiment:
-            save_experiment_results(pnls, control_pnls, selected_strategies, control_selected_strategies,
-                                    experiment_number)
+    if save_experiment:
+        save_experiment_results(pnls, control_pnls, selected_strategies, control_selected_strategies,
+                                experiment_number)
 
-        sharpe = ft.sharpe_ratio(pnls)
-        control_sharpe = ft.sharpe_ratio(control_pnls)
+    sharpe = ft.sharpe_ratio(pnls)
+    control_sharpe = ft.sharpe_ratio(control_pnls)
 
-        sharpes[seed] = sharpe
-        control_sharpes[seed] = control_sharpe
-
-        print(f'Sharpe ratio of forest portfolio: {sharpe}')
-        print(f'Sharpe ratio of control portfolio: {control_sharpe}')
-
-    results = pd.DataFrame(data=np.hstack([sharpes, control_sharpes]), columns=['forest_sharpe', 'control_sharpe'])
-    results['difference'] = results['forest_sharpe'] - results['control_sharpe']
-    print(results.describe())
-    results.to_csv('data/noise-test/noise-test-05.csv')
+    print(f'Sharpe ratio of forest portfolio: {sharpe}')
+    print(f'Sharpe ratio of control portfolio: {control_sharpe}')
 
 
 if __name__ == '__main__':
