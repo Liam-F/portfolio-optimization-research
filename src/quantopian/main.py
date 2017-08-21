@@ -120,18 +120,18 @@ def regression_forest(X, y, features_list, plot=False, seed=42):
     return forest
 
 
-def select_n_strategies_sharpe(pnl_pairs, limit_date=None, n=100):
+def select_n_strategies_sharpe(pnl_pairs, limit_date=None, n=50):
     if limit_date:
         pnl_pairs = pnl_pairs[:limit_date]
     sharpes = pnl_pairs.apply(ft.sharpe_ratio_last_year)
     return sharpes.sort_values(ascending=False).index[:n].values
 
 
-def select_n_best_predicted_strategies(model, features_list, pnl_pairs, limit_date=None, n=100):
+def select_n_best_predicted_strategies(model, features_list, pnl_pairs, limit_date=None, n=50):
     if limit_date:
         pnl_pairs = pnl_pairs[:limit_date]
     limit_date = pnl_pairs.index[-1]
-    precomputed_features_file = f'data/precomputed-features/{limit_date.date()}'
+    precomputed_features_file = f'data/precomputed-features-prod/{limit_date.date()}'
     if os.path.exists(precomputed_features_file):
         X = pd.read_csv(precomputed_features_file, parse_dates=True, index_col=0)
     else:
@@ -223,8 +223,8 @@ def save_experiment_results(pnls, control_pnls, selected_strategies, control_sel
 
 
 def main():
-    experiment_number = 2
-    save_experiment = False
+    experiment_number = 3
+    save_experiment = True
 
     features_list = (ft.trading_days, ft.sharpe_ratio, ft.sharpe_ratio_last_year, ft.annret, ft.annvol,
                      ft.skewness, ft.kurtosis, ft.information_ratio,
@@ -239,34 +239,36 @@ def main():
     pairs = pairs['2013':]
     pairs = pr.filter_on_nb_trades(pairs, percent=0.3)  # filter trades that have more than 30% of non trading days
 
-    min_window_X = 312
-    window_y = 60
-    training_pairs = pairs['2013':'2015-12']
-    nb_rows = training_pairs.index.shape[0]
+    production_strategies = pd.read_csv('./data/production-strategies.csv', parse_dates=True, index_col=0)
 
-    training_set = []
-    for i in range(min_window_X, nb_rows - window_y):
-        X_data = training_pairs[:i + 1]
-        y_data = training_pairs[i + 1:i + window_y + 1]
-        training_set.append(compute_training_dataset(features_list, X_data, y_data))
-    assert X_data.shape[0] + y_data.shape[0] == nb_rows
-    observations_scaled = pd.concat(training_set)
-    observations_scaled.to_csv('data/training_data_monthly.csv')
+    # min_window_X = 312
+    # window_y = 60
+    # training_pairs = pairs['2013':'2015-12']
+    # nb_rows = training_pairs.index.shape[0]
+    #
+    # training_set = []
+    # for i in range(min_window_X, nb_rows - window_y):
+    #     X_data = training_pairs[:i + 1]
+    #     y_data = training_pairs[i + 1:i + window_y + 1]
+    #     training_set.append(compute_training_dataset(features_list, X_data, y_data))
+    # assert X_data.shape[0] + y_data.shape[0] == nb_rows
+    # observations_scaled = pd.concat(training_set)
+    # observations_scaled.to_csv('data/training_data_monthly.csv')
 
-    # observations_scaled = compute_training_dataset(features_list, pairs['2013':'2014'], pairs['2015'],
-    #                                                training_data_file)
+    observations_scaled = compute_training_dataset(features_list, pairs['2013':'2014'], pairs['2015'],
+                                                   training_data_file)
 
     X = observations_scaled.drop(['OUTPUT'], axis=1)
     y = observations_scaled['OUTPUT']
 
     forest = regression_forest(X, y, features_list)
 
-    control_pnls, control_selected_strategies = portfolio_selection_simulation(pairs['2013':'2016'],
+    control_pnls, control_selected_strategies = portfolio_selection_simulation(production_strategies['2013':'2016'],
                                                                                select_n_strategies_sharpe,
                                                                                start_year='2016')
 
     forest_selection = functools.partial(select_n_best_predicted_strategies, forest, features_list)
-    pnls, selected_strategies = portfolio_selection_simulation(pairs['2013':'2016'], forest_selection,
+    pnls, selected_strategies = portfolio_selection_simulation(production_strategies['2013':'2016'], forest_selection,
                                                                start_year='2016')
 
     if save_experiment:
