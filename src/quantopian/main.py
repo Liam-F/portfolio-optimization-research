@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import functools
+import pickle
 from multiprocessing import Pool
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.metrics import f1_score, confusion_matrix, roc_curve, auc, r2_score
@@ -222,6 +223,11 @@ def save_experiment_results(pnls, control_pnls, selected_strategies, control_sel
     control_pnls.to_csv(f'{experiment_dir_path}/pnls-experiment-{experiment_number_suffix}-control.csv')
 
 
+def save_model(model, model_path):
+    with open(model_path, 'wb') as file:
+        pickle.dump(model, file)
+
+
 def main():
     experiment_number = 3
     save_experiment = True
@@ -280,6 +286,8 @@ def main():
 
     print(f'Sharpe ratio of forest portfolio: {sharpe}')
     print(f'Sharpe ratio of control portfolio: {control_sharpe}')
+
+    save_model(forest_selection, 'data/simple-forest.pkl')
 
 
 if __name__ == '__main__':
