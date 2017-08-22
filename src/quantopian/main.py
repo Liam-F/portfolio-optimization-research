@@ -287,7 +287,7 @@ def main():
     print(f'Sharpe ratio of forest portfolio: {sharpe}')
     print(f'Sharpe ratio of control portfolio: {control_sharpe}')
 
-    save_model(forest_selection, 'data/simple-forest.pkl')
+    save_model(forest, 'data/simple-forest.pkl')
 
 
 if __name__ == '__main__':
