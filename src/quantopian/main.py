@@ -133,11 +133,15 @@ def select_n_best_predicted_strategies(model, features_list, pnl_pairs, limit_da
         pnl_pairs = pnl_pairs[:limit_date]
     limit_date = pnl_pairs.index[-1]
     precomputed_features_file = f'data/precomputed-features-prod/{limit_date.date()}'
+    precomputed_features_file_out = precomputed_features_file + '_output'
     if os.path.exists(precomputed_features_file):
         X = pd.read_csv(precomputed_features_file, parse_dates=True, index_col=0)
     else:
         X = create_inputs(pnl_pairs, features_list, scale=True, drop_nans=True)
         X.to_csv(precomputed_features_file)
+
+        y = create_outputs(pnl_pairs)
+        y.to_csv(precomputed_features_file_out)
     strategy_list = X.index.values
 
     predicted_sharpe = model.predict(X)
