@@ -13,7 +13,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import robust_scale, binarize
 
 import features as ft
-import preprocessing as pr
+import preprocessing
 import util
 from util import plot_confusion_matrix, plot_feature_importance
 
@@ -21,8 +21,8 @@ pd.set_option('display.width', 200)
 
 
 def filter_pairs(pairs):
-    return pr.filter_on_nb_trades(
-        pr.filter_on_rolling_sharpe(pairs, 0.8, 252)
+    return preprocessing.filter_on_nb_trades(
+        preprocessing.filter_on_rolling_sharpe(pairs, 0.8, 252)
     )
 
 
@@ -34,7 +34,7 @@ def create_inputs(pairs, features_list, end_date=None, drop_nans=True, scale=Tru
 
     X = np.zeros((nb_strategies, len(features_list)))
     for i, strategy in enumerate(pairs.columns):
-        X[i] = pr.compute_features(pairs[strategy], features_list)
+        X[i] = preprocessing.compute_features(pairs[strategy], features_list)
     X = pd.DataFrame(data=X, columns=feature_names, index=pairs.columns)
     if drop_nans:
         X = util.drop_nan_rows(X)
@@ -121,7 +121,7 @@ def regression_forest(X, y, features_list, plot=False, seed=42):
     return forest
 
 
-def select_n_strategies_sharpe(pnl_pairs, limit_date=None, n=50):
+def sharpe_based_selection_function(pnl_pairs, limit_date=None, n=50):
     if limit_date:
         pnl_pairs = pnl_pairs[:limit_date]
     sharpes = pnl_pairs.apply(ft.sharpe_ratio_last_year)
@@ -191,29 +191,30 @@ def portfolio_selection_simulation(pairs, strategy_selection_fn, start_year='201
     return pd.Series(data=pnls, index=pairs[start_date:].index), selected_strategies_series
 
 
-def compute_training_dataset(features_list, X_pairs, y_pairs, features_path=None):
+def compute_training_dataset(features_list, pnls_for_features, pnls_for_labels, features_path=None):
     if (features_path is None) or (not os.path.exists(features_path)):
-        X = create_inputs(X_pairs, features_list, drop_nans=False, scale=False)
-        y = create_outputs(y_pairs)
+        features = create_inputs(pnls_for_features, features_list, drop_nans=False, scale=False)
+        labels = create_outputs(pnls_for_labels)
 
-        observations = pd.DataFrame(
-            data=np.hstack([X, y]),
+        training_data = pd.DataFrame(
+            data=np.hstack([features, labels]),
             columns=[f.__name__ for f in features_list] + ['OUTPUT'],
-            index=X_pairs.columns
+            index=pnls_for_features.columns
         ).dropna()
-        observations = observations[np.all(np.isfinite(observations), axis=1)]
 
-        observations_scaled = pd.DataFrame(
-            data=robust_scale(observations),
-            columns=observations.columns,
-            index=observations.index
+        training_data = training_data[np.all(np.isfinite(training_data), axis=1)]
+
+        training_data_scaled = pd.DataFrame(
+            data=robust_scale(training_data),
+            columns=training_data.columns,
+            index=training_data.index
         )
 
         if features_path:
-            observations_scaled.to_csv(features_path)
+            training_data_scaled.to_csv(features_path)
     else:
-        observations_scaled = pd.read_csv(features_path, index_col=0)
-    return observations_scaled
+        training_data_scaled = pd.read_csv(features_path, index_col=0)
+    return training_data_scaled
 
 
 def save_experiment_results(pnls, control_pnls, selected_strategies, control_selected_strategies, experiment_number):
@@ -247,11 +248,11 @@ def main():
 
     training_data_file = './data/training_data.csv'
 
-    pairs = pd.read_csv('./data/all-pairs.csv', parse_dates=True, index_col=0)
-    pairs = pairs['2013':]
-    pairs = pr.filter_on_nb_trades(pairs, percent=0.3)  # filter strategies  that have more than 30% of non trading days
+    pnls = pd.read_csv('./data/all-pairs.csv', parse_dates=True, index_col=0)
+    pnls = pnls['2013':]
+    pnls = preprocessing.filter_on_nb_trades(pnls, percent=0.3)  # filter strategies  that have more than 30% of non trading days
 
-    production_strategies = pd.read_csv('./data/production-strategies.csv', parse_dates=True, index_col=0)
+    production_strategies_pnls = pd.read_csv('./data/production-strategies.csv', parse_dates=True, index_col=0)
 
     # min_window_X = 312
     # window_y = 60
@@ -267,33 +268,31 @@ def main():
     # observations_scaled = pd.concat(training_set)
     # observations_scaled.to_csv('data/training_data_monthly.csv')
 
-    observations_scaled = compute_training_dataset(features_list, pairs['2013':'2014'], pairs['2015'],
-                                                   training_data_file)
+    training_data = compute_training_dataset(features_list, pnls['2013':'2014'], pnls['2015'], training_data_file)
 
-    X = observations_scaled.drop(['OUTPUT'], axis=1)
-    y = observations_scaled['OUTPUT']
+    training_features = training_data.drop(['OUTPUT'], axis=1)
+    training_labels = training_data['OUTPUT']
 
-    forest = regression_forest(X, y, features_list)
-
-    control_pnls, control_selected_strategies = portfolio_selection_simulation(production_strategies['2013':'2016'],
-                                                                               select_n_strategies_sharpe,
+    control_pnls, control_selected_strategies = portfolio_selection_simulation(production_strategies_pnls['2013':'2016'],
+                                                                               sharpe_based_selection_function,
                                                                                start_year='2016')
 
-    forest_selection = functools.partial(select_n_best_predicted_strategies, forest, features_list)
-    pnls, selected_strategies = portfolio_selection_simulation(production_strategies['2013':'2016'], forest_selection,
-                                                               start_year='2016')
+    model = regression_forest(training_features, training_labels, features_list)
+    forest_selection_function = functools.partial(select_n_best_predicted_strategies, model, features_list)
+    forest_pnls, forest_selected_strategies = portfolio_selection_simulation(production_strategies_pnls['2013':'2016'],
+                                                                             forest_selection_function, start_year='2016')
 
     if save_experiment:
-        save_experiment_results(pnls, control_pnls, selected_strategies, control_selected_strategies,
+        save_experiment_results(forest_pnls, control_pnls, forest_selected_strategies, control_selected_strategies,
                                 experiment_number)
 
-    sharpe = ft.sharpe_ratio(pnls)
+    forest_sharpe = ft.sharpe_ratio(forest_pnls)
     control_sharpe = ft.sharpe_ratio(control_pnls)
 
-    print(f'Sharpe ratio of forest portfolio: {sharpe}')
+    print(f'Sharpe ratio of forest portfolio: {forest_sharpe}')
     print(f'Sharpe ratio of control portfolio: {control_sharpe}')
 
-    save_model(forest, 'data/simple-forest.pkl')
+    save_model(model, 'data/simple-forest.pkl')
 
 
 if __name__ == '__main__':
