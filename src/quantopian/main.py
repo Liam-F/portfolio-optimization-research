@@ -249,7 +249,7 @@ def main():
 
     pairs = pd.read_csv('./data/all-pairs.csv', parse_dates=True, index_col=0)
     pairs = pairs['2013':]
-    pairs = pr.filter_on_nb_trades(pairs, percent=0.3)  # filter trades that have more than 30% of non trading days
+    pairs = pr.filter_on_nb_trades(pairs, percent=0.3)  # filter strategies  that have more than 30% of non trading days
 
     production_strategies = pd.read_csv('./data/production-strategies.csv', parse_dates=True, index_col=0)
 
