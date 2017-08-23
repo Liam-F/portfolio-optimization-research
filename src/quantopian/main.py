@@ -141,7 +141,7 @@ def select_n_best_predicted_strategies(model, features_list, pnl_pairs, limit_da
         X.to_csv(precomputed_features_file)
 
         y = create_outputs(pnl_pairs)
-        pd.DataFrame(y, columns=['OUTPUT'], index=pnl_pairs.columns).dropna().to_csv(precomputed_features_file_out)
+        pd.DataFrame(y, columns=['OUTPUT'], index=pnl_pairs.columns).loc[X.index].to_csv(precomputed_features_file_out)
         del y
 
     strategy_list = X.index.values
