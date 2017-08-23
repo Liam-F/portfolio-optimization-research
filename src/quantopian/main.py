@@ -253,9 +253,9 @@ def main():
 
     training_data_file = './data/training_data.csv'
 
-    forest_pnls = pd.read_csv('./data/all-pairs.csv', parse_dates=True, index_col=0)
-    forest_pnls = forest_pnls['2013':]
-    forest_pnls = preprocessing.filter_on_nb_trades(forest_pnls,
+    pairs_pnls = pd.read_csv('./data/all-pairs.csv', parse_dates=True, index_col=0)
+    pairs_pnls = pairs_pnls['2013':]
+    pairs_pnls = preprocessing.filter_on_nb_trades(pairs_pnls,
                                                     percent=0.3)  # filter strategies that have more than 30% of non trading days
 
     production_strategies_pnls = pd.read_csv('./data/production-strategies.csv', parse_dates=True, index_col=0)
