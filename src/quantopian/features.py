@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-import statsmodels.api as sm
 
 
 def load_spy(fn='./data/instruments/es-all.csv'):
@@ -111,14 +110,6 @@ def kurtosis(returns):
 
 def kurtosis_last_year(returns):
     return kurtosis(returns.iloc[-252:])
-
-
-def stability(returns):
-    clog_returns = np.log(returns).cumsum()
-
-    lm = sm.OLS(clog_returns, sm.add_constant(np.arange(returns.shape[0]))).fit()
-
-    return lm.rsquared
 
 
 def beta_spy(returns):
