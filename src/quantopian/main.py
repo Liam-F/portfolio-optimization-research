@@ -279,7 +279,7 @@ def main():
     # else:
     #     observations_scaled = pd.read_csv(training_data_production, parse_dates=True, index_col=0)
 
-    training_data = compute_training_dataset(features_list, forest_pnls['2013':'2014'], forest_pnls['2015'],
+    training_data = compute_training_dataset(features_list, pairs_pnls['2013':'2014'], pairs_pnls['2015'],
                                              training_data_file)
 
     training_features = training_data.drop(['OUTPUT'], axis=1)
