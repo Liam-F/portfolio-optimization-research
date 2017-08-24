@@ -123,27 +123,28 @@ def regression_forest(X, y, features_list, plot=False, seed=42):
     return forest
 
 
-def sharpe_based_selection_function(pnl_pairs, limit_date=None, n=50):
+
+def sharpe_based_selection_function(pnls, limit_date=None, n=25):
     if limit_date:
-        pnl_pairs = pnl_pairs[:(limit_date - timedelta(days=1))]
-    sharpes = pnl_pairs.apply(ft.sharpe_ratio_last_year)
+        pnls = pnls[:(limit_date - timedelta(days=1))]
+    sharpes = pnls.apply(ft.sharpe_ratio_last_year)
     return sharpes.sort_values(ascending=False).index[:n].values
 
 
-def select_n_best_predicted_strategies(model, features_list, pnl_pairs, limit_date=None, n=50):
+def select_n_best_predicted_strategies(model, features_list, pnls, limit_date=None, n=25):
     if limit_date:
-        pnl_pairs = pnl_pairs[:(limit_date - timedelta(days=1))]
-    limit_date = pnl_pairs.index[-1]
+        pnls = pnls[:(limit_date - timedelta(days=1))]
+    limit_date = pnls.index[-1]
     precomputed_features_file = f'data/precomputed-features-prod/{limit_date.date()}'
     precomputed_features_file_out = precomputed_features_file + '_output'
     if os.path.exists(precomputed_features_file):
         X = pd.read_csv(precomputed_features_file, parse_dates=True, index_col=0)
     else:
-        X = create_inputs(pnl_pairs, features_list, scale=True, drop_nans=True)
+        X = create_inputs(pnls, features_list, scale=True, drop_nans=True)
         X.to_csv(precomputed_features_file)
 
-        y = create_outputs(pnl_pairs)
-        pd.DataFrame(y, columns=['OUTPUT'], index=pnl_pairs.columns).loc[X.index].to_csv(precomputed_features_file_out)
+        y = create_outputs(pnls)
+        pd.DataFrame(y, columns=['OUTPUT'], index=pnls.columns).loc[X.index].to_csv(precomputed_features_file_out)
         del y
 
     strategy_list = X.index.values
