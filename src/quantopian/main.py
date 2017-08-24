@@ -1,22 +1,15 @@
 import os
-
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import seaborn as sns
 import functools
 import pickle
 from datetime import timedelta
 from multiprocessing import Pool
-from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-from sklearn.metrics import f1_score, confusion_matrix, roc_curve, auc, r2_score
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import robust_scale, binarize
-
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.preprocessing import robust_scale
 import features as ft
 import preprocessing
 import util
-from util import plot_confusion_matrix, plot_feature_importance
 
 pd.set_option('display.width', 200)
 
@@ -45,80 +38,8 @@ def compute_labels(pairs):
     return y
 
 
-def classification_forest(X, y, features_list):
-    groups = np.array([-9999, -1, 0, 0.5, 0.75, 1, 9999])
-    groups = np.array([-9999, 0.5, 1, 9999])
-    labels = np.arange(groups.shape[0] - 1)
-    y = pd.cut(y, groups, labels=labels)
-
-    print('Members per Group')
-    print(y.value_counts())
-
-    X_tr, X_te, y_tr, y_te = train_test_split(X, y, stratify=y, test_size=0.25, random_state=42)
-
-    forest = RandomForestClassifier(n_estimators=100, random_state=43, class_weight='balanced_subsample')
-    forest.fit(X_tr, y_tr)
-
-    for roc_class in np.arange(0, groups.shape[0] - 1):
-        test_predictions = forest.predict(X_te)
-        bin_preds = test_predictions
-        bin_preds_proba = forest.predict_proba(X_te)[:, roc_class]
-        bin_y_te = y_te
-        r_fpr, r_tpr, _ = roc_curve((bin_y_te == roc_class) * 1, bin_preds_proba)
-
-        plt.figure()
-        plt.title('Class (%s-%s]' % (groups[roc_class], groups[roc_class + 1]))
-        r_auc = auc(r_fpr, r_tpr)
-        plt.plot(r_fpr, r_tpr, label='AUC: %s' % r_auc)
-        plt.legend()
-        plt.show(block=False)
-
-    print(f'F1 score: {f1_score(bin_y_te, bin_preds, average="macro")}')
-
-    cm = confusion_matrix(bin_y_te, bin_preds)
-    names = ['(%s, %s]' % (a, b) for a, b in zip(groups[:-1], groups[1:])]
-    plot_confusion_matrix(cm, names)
-    # Useful for comparisons when debugging
-    result = y_te.to_frame('true').merge(pd.Series(test_predictions, index=y_te.index, name='pred').to_frame(),
-                                         left_index=True, right_index=True)
-
-    plot_feature_importance(features_list, forest)
-    plt.show()
-
-
-def regression_forest(X, y, features_list, plot=False, seed=42):
-    X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.25, random_state=seed)
-
-    forest = RandomForestRegressor(n_estimators=100, random_state=seed, n_jobs=-1)
-    forest.fit(X, y)
-
-    te_predictions = forest.predict(X_te).reshape(-1, 1)
-    te_real_values = y_te.values.reshape(-1, 1)
-
-    print(f'R2 score: {r2_score(te_real_values, te_predictions)}')
-
-    if plot:
-        g = sns.jointplot(te_predictions, te_real_values, kind='reg')
-        g.ax_joint.plot([-7, 7], [-7, 7])
-
-    # Classification metrics
-    bin_preds = binarize(te_predictions)
-    bin_real_values = binarize(te_real_values)
-
-    print(f'F1 score: {f1_score(bin_real_values, bin_preds)}')
-    print(f'Confusion matrix: {confusion_matrix(bin_real_values, bin_preds)}')
-
-    if plot:
-        plot_feature_importance(features_list, forest)
-        plt.show(block=False)
-
-    return forest
-
-
-
-def sharpe_based_selection_function(pnls, limit_date=None, n=25):
-    if limit_date:
-        pnls = pnls[:(limit_date - timedelta(days=1))]
+def sharpe_based_selection_function(pnls, date, n=25):
+    pnls = pnls[:(date - timedelta(days=1))]
     sharpes = pnls.apply(ft.sharpe_ratio_last_year)
     return sharpes.sort_values(ascending=False).index[:n].values
 
@@ -178,6 +99,7 @@ def compute_training_dataset(features_list, pnls_for_features, pnls_for_labels, 
             columns=[f.__name__ for f in features_list] + ['OUTPUT'],
             index=pnls_for_features.columns
         ).dropna()
+
         training_data = training_data[np.all(np.isfinite(training_data), axis=1)]
 
         if scale:
@@ -226,23 +148,24 @@ def main():
                      ft.sharpe_ratio_last_150_days)
 
     training_data_file = './data/training_data.csv'
-    pairs_pnls = pd.read_csv('./data/all-pairs.csv', parse_dates=True, index_col=0)
-    pairs_pnls = pairs_pnls['2013':]
-    pairs_pnls = preprocessing.filter_on_nb_trades(pairs_pnls, percent=0.3)  # filter strategies that have more than 30% of non trading days
+    strategy_pnls = pd.read_csv('./data/all-pairs.csv', parse_dates=True, index_col=0)
+    strategy_pnls = strategy_pnls['2013':]
+    strategy_pnls = preprocessing.filter_on_nb_trades(strategy_pnls, percent=0.3)  # filter strategies that have more than 30% of non trading days
 
     production_strategies_pnls = pd.read_csv('./data/production-strategies.csv', parse_dates=True, index_col=0)
-    training_data = compute_training_dataset(features_list, pairs_pnls['2013':'2014'], pairs_pnls['2015'],
+    training_data = compute_training_dataset(features_list, strategy_pnls['2013':'2014'], strategy_pnls['2015'],
                                              training_data_file)
 
     training_features = training_data.drop(['OUTPUT'], axis=1)
     training_labels = training_data['OUTPUT']
 
-    control_pnls, control_selected_strategies = portfolio_selection_simulation(
-        production_strategies_pnls['2013':'2016'],
-        sharpe_based_selection_function,
-        start_year='2016')
+    control_pnls, control_selected_strategies = portfolio_selection_simulation(production_strategies_pnls['2013':'2016'],
+                                                                               sharpe_based_selection_function,
+                                                                               start_year='2016')
 
-    model = regression_forest(training_features, training_labels, features_list)
+    model = RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1)
+    model.fit(training_features, training_labels)
+
     forest_selection_function = functools.partial(select_n_best_predicted_strategies, model, features_list)
     forest_pnls, forest_selected_strategies = portfolio_selection_simulation(production_strategies_pnls['2013':'2016'],
                                                                              forest_selection_function,
