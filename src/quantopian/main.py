@@ -56,6 +56,7 @@ def select_n_best_predicted_strategies(model, features_list, strategy_pnls, date
 
 def portfolio_selection_simulation(strategy_pnls, strategy_selection_function, start_year, selection_frequency='BM', change_frequency='BMS'):
     start_date = strategy_pnls[start_year:].index[0]
+    second_date = strategy_pnls[start_year:].index[0]
     end_date = strategy_pnls[start_date:].index[-1]
     scaled_pnls = strategy_pnls / strategy_pnls['2015-02':'2015-12'].std()  # Franky-like scaling (excludes Swiss-Franc event).
 
@@ -66,7 +67,7 @@ def portfolio_selection_simulation(strategy_pnls, strategy_selection_function, s
     if start_date not in selection_dates:
         selection_dates = selection_dates.union(pd.Index([start_date]))
     if start_date not in change_dates:
-        change_dates = change_dates.union(pd.Index([start_date]))
+        change_dates = change_dates.union(pd.Index([second_date]))
 
     selection_dates = selection_dates[:len(change_dates)]
 
@@ -79,7 +80,7 @@ def portfolio_selection_simulation(strategy_pnls, strategy_selection_function, s
                                            index=change_dates)
 
     selected_pnls = []
-    for date in strategy_pnls[start_date:].index:
+    for date in strategy_pnls[second_date:].index:
         if date in change_dates:
             current_strategies = selected_strategies_series.loc[date]
         # record daily pnl
@@ -149,10 +150,11 @@ def main():
 
     training_data_file = './data/training_data.csv'
     strategy_pnls = pd.read_csv('./data/all-pairs.csv', parse_dates=True, index_col=0)
-    strategy_pnls = strategy_pnls['2013':]
+    strategy_pnls = strategy_pnls['2013':'2016']
     strategy_pnls = preprocessing.filter_on_nb_trades(strategy_pnls, percent=0.3)  # filter strategies that have more than 30% of non trading days
 
     production_strategies_pnls = pd.read_csv('./data/production-strategies.csv', parse_dates=True, index_col=0)
+    production_strategies_pnls = production_strategies_pnls['2013':'2016']
     training_data = compute_training_dataset(features_list, strategy_pnls['2013':'2014'], strategy_pnls['2015'],
                                              training_data_file)
 
