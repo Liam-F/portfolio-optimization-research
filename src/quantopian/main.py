@@ -252,12 +252,14 @@ def main():
                      ft.sharpe_ratio_last_30_days, ft.sharpe_ratio_last_90_days,
                      ft.sharpe_ratio_last_150_days)
 
-    training_data_file = './data/training_data.csv'
+    # training_data_file = './data/training_data.csv'
+    training_data_file = './data/training_data_sharpe_3.csv'
 
     pairs_pnls = pd.read_csv('./data/all-pairs.csv', parse_dates=True, index_col=0)
     pairs_pnls = pairs_pnls['2013':]
-    pairs_pnls = preprocessing.filter_on_nb_trades(pairs_pnls,
-                                                    percent=0.3)  # filter strategies that have more than 30% of non trading days
+    pairs_pnls = preprocessing.filter_on_nb_trades(pairs_pnls, percent=0.3)  # filter strategies that have more than 30% of non trading days
+    # pairs_pnls = preprocessing.filter_on_rolling_sharpe(pairs_pnls, 4, window=126)
+    print('Remaining pairs to train: %s' % str(pairs_pnls.shape))
 
     production_strategies_pnls = pd.read_csv('./data/production-strategies.csv', parse_dates=True, index_col=0)
 
@@ -307,8 +309,70 @@ def main():
     print(f'Sharpe ratio of forest portfolio: {forest_sharpe}')
     print(f'Sharpe ratio of control portfolio: {control_sharpe}')
 
+    # pairs_to_check = '2015-12-31'
+    # X = pd.read_csv('./data/precomputed-features-prod/%s' % pairs_to_check, parse_dates=True, index_col=0)
+    # y = pd.read_csv('./data/precomputed-features-prod/%s_output' % pairs_to_check, parse_dates=True,
+    #                                  index_col=0)
+
+    X = training_features
+    y = pd.Series(training_labels, name='OUTPUT').to_frame()
+
+    make_estimation_boundary_plots(X, y, model, block_at_end=True)
+
     save_model(model, 'data/simple-forest.pkl')
 
+
+def make_estimation_boundary_plots(X, y, model, block_at_end=True, lines_per_plot=20, abort_after=200):
+    forest_pred = model.predict(X)
+
+    result = np.zeros((model.n_estimators, X.shape[0]))
+    for i, tree in enumerate(model.estimators_):
+        result[i, :] = tree.predict(X)
+    trees_predicts = result.mean(axis=0)
+    trees_std = result.std(axis=0)
+
+    for i in range(trees_predicts.shape[0]):
+        if i > abort_after:
+            break
+
+        if i % lines_per_plot == 0:
+            plt.figure()
+
+        pred = trees_predicts[i]
+        std = trees_std[i]
+        act = y['OUTPUT'].iloc[i]
+
+        left = pred - 1.96 * std
+        right = pred + 1.96 * std
+
+        plt.plot(pred, i, 'ro', c='r')
+        plt.plot([left, right], [i, i], c='r')
+        plt.plot(act, i, 'ro', c='g')
+
+        if i % lines_per_plot == lines_per_plot - 1:
+            plt.tight_layout()
+            plt.show(block=False)
+
+    xs = np.argsort(np.argsort(forest_pred))
+    ys = np.argsort(np.argsort(y['OUTPUT'].values))
+
+    plt.figure()
+    plt.scatter(xs, ys)
+    plt.xlabel('Predicted OOS Sharpe Ranking')
+    plt.ylabel('Actual OOS Sharpe Ranking')
+    plt.show(block=False)
+    plt.figure()
+    plt.scatter(forest_pred, y['OUTPUT'].values)
+    plt.xlabel('Predicted OOS Sharpe')
+    plt.ylabel('Actual OOS Sharpe')
+    plt.show(block=False)
+
+    import statsmodels.api as sm
+    print(sm.OLS(xs, sm.add_constant(ys)).fit().summary())
+
+    plt.show(block=block_at_end)
+
+    return
 
 if __name__ == '__main__':
     main()
