@@ -56,17 +56,17 @@ def select_n_best_predicted_strategies(model, features_list, strategy_pnls, date
 
 def portfolio_selection_simulation(strategy_pnls, strategy_selection_function, start_year, selection_frequency='BM', change_frequency='BMS'):
     start_date = strategy_pnls[start_year:].index[0]
-    second_date = strategy_pnls[start_year:].index[0]
+    second_date = strategy_pnls[start_year:].index[1]
     end_date = strategy_pnls[start_date:].index[-1]
     scaled_pnls = strategy_pnls / strategy_pnls['2015-02':'2015-12'].std()  # Franky-like scaling (excludes Swiss-Franc event).
 
     selection_dates = pd.date_range(start_date, end_date, freq=selection_frequency)
-    change_dates = pd.date_range(start_date, end_date, freq=change_frequency)
+    change_dates = pd.date_range(second_date, end_date, freq=change_frequency)
 
     # we want to select the strategies on the first day of operation
     if start_date not in selection_dates:
         selection_dates = selection_dates.union(pd.Index([start_date]))
-    if start_date not in change_dates:
+    if second_date not in change_dates:
         change_dates = change_dates.union(pd.Index([second_date]))
 
     selection_dates = selection_dates[:len(change_dates)]
@@ -87,7 +87,7 @@ def portfolio_selection_simulation(strategy_pnls, strategy_selection_function, s
         daily_pnl = scaled_pnls.loc[date, current_strategies].sum()
         selected_pnls.append(daily_pnl)
 
-    return pd.Series(data=selected_pnls, index=strategy_pnls[start_date:].index), selected_strategies_series
+    return pd.Series(data=selected_pnls, index=strategy_pnls[second_date:].index), selected_strategies_series
 
 
 def compute_training_dataset(features_list, pnls_for_features, pnls_for_labels, features_path=None, scale=True):
@@ -155,6 +155,7 @@ def main():
 
     production_strategies_pnls = pd.read_csv('./data/production-strategies.csv', parse_dates=True, index_col=0)
     production_strategies_pnls = production_strategies_pnls['2013':'2016']
+
     training_data = compute_training_dataset(features_list, strategy_pnls['2013':'2014'], strategy_pnls['2015'],
                                              training_data_file)
 
