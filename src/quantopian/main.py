@@ -183,20 +183,17 @@ def main():
     print(f'Sharpe ratio of forest portfolio: {forest_sharpe}')
     print(f'Sharpe ratio of control portfolio: {control_sharpe}')
 
-    # pairs_to_check = '2015-12-31'
-    # X = pd.read_csv('./data/precomputed-features-prod/%s' % pairs_to_check, parse_dates=True, index_col=0)
-    # y = pd.read_csv('./data/precomputed-features-prod/%s_output' % pairs_to_check, parse_dates=True,
-    #                                  index_col=0)
+    pairs_to_check = '2016-08-30'
+    X = pd.read_csv('./data/precomputed-features-prod/%s' % pairs_to_check, parse_dates=True, index_col=0)
+    y = pd.read_csv('./data/precomputed-features-prod/%s_output' % pairs_to_check, parse_dates=True, index_col=0)
 
-    X = training_features
-    y = pd.Series(training_labels, name='OUTPUT').to_frame()
-
-    make_estimation_boundary_plots(X, y, model, block_at_end=True)
+    make_estimation_boundary_plots(X, y, model, block_at_end=True, standardize=False)
 
     save_model(model, 'data/simple-forest.pkl')
 
 
-def make_estimation_boundary_plots(X, y, model, block_at_end=True, lines_per_plot=20, abort_after=200):
+def make_estimation_boundary_plots(X, y, model, block_at_end=True, lines_per_plot=20, abort_after=200,
+                                   standardize=False):
     import matplotlib.pyplot as plt
 
     forest_pred = model.predict(X)
@@ -237,10 +234,19 @@ def make_estimation_boundary_plots(X, y, model, block_at_end=True, lines_per_plo
     plt.xlabel('Predicted OOS Sharpe Ranking')
     plt.ylabel('Actual OOS Sharpe Ranking')
     plt.show(block=False)
+
+    xs = forest_pred
+    ys = y['OUTPUT'].values
+
+    if standardize:
+        xs = (xs - xs.mean()) / xs.std()
+        ys = (ys - ys.mean()) / ys.std()
+
     plt.figure()
-    plt.scatter(forest_pred, y['OUTPUT'].values)
-    plt.xlabel('Predicted OOS Sharpe')
-    plt.ylabel('Actual OOS Sharpe')
+    plt.scatter(xs, ys)
+    suffix = ' (std)' if standardize else ''
+    plt.xlabel('Predicted OOS Sharpe' + suffix)
+    plt.ylabel('Actual OOS Sharpe' + suffix)
     plt.show(block=False)
 
     import statsmodels.api as sm
