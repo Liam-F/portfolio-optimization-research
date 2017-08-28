@@ -47,6 +47,16 @@ def sharpe_based_selection_function(pnls, date, n=25):
 def select_n_best_predicted_strategies(model, features_list, strategy_pnls, date, n=50):
     strategy_pnls = strategy_pnls[:(date - timedelta(days=1))]
     X = compute_features(strategy_pnls, features_list, scale=True, drop_nans=True)
+
+    precomputed_features_file = f'data/precomputed-features-prod/{date.date()}'
+    precomputed_features_file_out = precomputed_features_file + '_output'
+    if not os.path.exists(precomputed_features_file):
+        X.to_csv(precomputed_features_file)
+
+        y = compute_labels(strategy_pnls)
+        pd.DataFrame(y, columns=['OUTPUT'], index=strategy_pnls.columns).loc[X.index].to_csv(precomputed_features_file_out)
+        del y
+
     strategy_list = X.index.values
     predicted_sharpe = model.predict(X)
     strategy_sharpe_pairs = [(strategy, predicted_sharpe[i]) for i, strategy in enumerate(strategy_list)]
@@ -184,7 +194,7 @@ def main():
     print(f'Sharpe ratio of forest portfolio: {forest_sharpe}')
     print(f'Sharpe ratio of control portfolio: {control_sharpe}')
 
-    pairs_to_check = '2016-08-30'
+    pairs_to_check = '2016-08-31'
     X = pd.read_csv('./data/precomputed-features-prod/%s' % pairs_to_check, parse_dates=True, index_col=0)
     y = pd.read_csv('./data/precomputed-features-prod/%s_output' % pairs_to_check, parse_dates=True, index_col=0)
 
