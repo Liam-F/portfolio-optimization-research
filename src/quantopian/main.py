@@ -38,7 +38,7 @@ def compute_labels(pairs):
     return y
 
 
-def sharpe_based_selection_function(pnls, date, n=25):
+def sharpe_based_selection_function(pnls, date, n=50):
     pnls = pnls[:(date - timedelta(days=1))]
     sharpes = pnls.apply(ft.sharpe_ratio_last_year)
     return sharpes.sort_values(ascending=False).index[:n].values
