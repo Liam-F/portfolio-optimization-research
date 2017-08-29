@@ -6,12 +6,18 @@ import pickle
 from datetime import timedelta
 from multiprocessing import Pool
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.preprocessing import robust_scale
 import features as ft
 import preprocessing
 import util
 
 pd.set_option('display.width', 200)
+
+
+def robust_scale(X):
+    median = np.median(X, axis=0)
+    scale = np.percentile(X, 75, axis=0) - np.percentile(X, 25, axis=0)
+    X = X - median
+    return X / scale
 
 
 def compute_features(pairs, features_list, drop_nans=True, scale=True):
