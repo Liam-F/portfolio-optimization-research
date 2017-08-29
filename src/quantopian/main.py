@@ -226,8 +226,8 @@ def make_estimation_boundary_plots(X, y, model, block_at_end=True, lines_per_plo
         std = trees_std[i]
         act = y['OUTPUT'].iloc[i]
 
-        left = pred - 1.96 * std
-        right = pred + 1.96 * std
+        left = pred - 1.96 * std / np.sqrt(model.n_estimators)
+        right = pred + 1.96 * std / np.sqrt(model.n_estimators)
 
         plt.plot(pred, i, 'ro', c='r')
         plt.plot([left, right], [i, i], c='r')
