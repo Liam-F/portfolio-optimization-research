@@ -16,5 +16,5 @@ def filter_on_nb_trades(returns, percent=0.1):
 def compute_features(returns, feature_functions):
     result = []
     for feature in feature_functions:
-        result.append(feature(returns[returns != 0]))
+        result.append(feature(returns))#[returns != 0]))
     return np.array(result)

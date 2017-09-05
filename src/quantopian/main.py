@@ -109,7 +109,7 @@ def portfolio_selection_simulation(strategy_pnls, strategy_selection_function, s
 
 def compute_training_dataset(features_list, pnls_for_features, pnls_for_labels, features_path=None, scale=True):
     if (features_path is None) or (not os.path.exists(features_path)):
-        features = compute_features(pnls_for_features, features_list, drop_nans=False, scale=False)
+        features = compute_features(pnls_for_features, features_list, drop_nans=False, scale=True)
         labels = compute_labels(pnls_for_labels)
 
         training_data = pd.DataFrame(
@@ -117,6 +117,9 @@ def compute_training_dataset(features_list, pnls_for_features, pnls_for_labels, 
             columns=[f.__name__ for f in features_list] + ['OUTPUT'],
             index=pnls_for_features.columns
         ).dropna()
+
+        if features_path:
+            training_data.to_csv(features_path.replace('.csv', '_unscaled.csv'))
 
         training_data = training_data[np.all(np.isfinite(training_data), axis=1)]
 
@@ -189,10 +192,10 @@ def main():
     from sklearn.feature_selection import RFE
     from sklearn.cross_decomposition import PLSRegression
     model = RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1)
-    lm_model = LinearRegression()
-    pls = PLSRegression(n_components=13)
-
-    model = pls
+    # lm_model = LinearRegression()
+    # pls = PLSRegression(n_components=13)
+    #
+    # model = pls
     model.fit(training_features, training_labels)
 
     # rfe = RFE(pls, n_features_to_select=1, step=1, verbose=1)

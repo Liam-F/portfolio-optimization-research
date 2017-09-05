@@ -10,106 +10,106 @@ def load_spy(fn='./data/instruments/es-all.csv'):
     return data[['spy_returns']]
 
 
-def trading_days(returns):
-    return returns[returns != 0].shape[0]
+def trading_days(pnls):
+    return pnls[pnls != 0].shape[0]
 
 
 np.seterr(all='raise')
 
 
-def sharpe_ratio(returns, periods=252):
-    std = returns.std()
+def sharpe_ratio(pnls, periods=252):
+    std = pnls.std()
 
     if std == 0:
         return np.nan
 
-    return np.sqrt(periods) * returns.mean() / std
+    return np.sqrt(periods) * pnls.mean() / std
 
 
-def sharpe_n_trimester(returns, n, periods=252):
-    returns = returns[-252:]
-    returns_count = returns.shape[0]
+def sharpe_n_trimester(pnls, n, periods=252):
+    pnls = pnls[-252:]
+    returns_count = pnls.shape[0]
     slice_size = returns_count // 4
     if n < 4:
-        return sharpe_ratio(returns[(n - 1) * slice_size: n * slice_size])
+        return sharpe_ratio(pnls[(n - 1) * slice_size: n * slice_size])
     else:
-        return sharpe_ratio(returns[(n - 1) * slice_size:])
+        return sharpe_ratio(pnls[(n - 1) * slice_size:])
 
 
-def sharpe_first_trimester(returns, periods=252):
-    return sharpe_n_trimester(returns, 1, periods=periods)
+def sharpe_first_trimester(pnls, periods=252):
+    return sharpe_n_trimester(pnls, 1, periods=periods)
 
 
-def sharpe_second_trimester(returns, periods=252):
-    return sharpe_n_trimester(returns, 2, periods=periods)
+def sharpe_second_trimester(pnls, periods=252):
+    return sharpe_n_trimester(pnls, 2, periods=periods)
 
 
-def sharpe_third_trimester(returns, periods=252):
-    return sharpe_n_trimester(returns, 3, periods=periods)
+def sharpe_third_trimester(pnls, periods=252):
+    return sharpe_n_trimester(pnls, 3, periods=periods)
 
 
-def sharpe_fourth_trimester(returns, periods=252):
-    return sharpe_n_trimester(returns, 4, periods=periods)
+def sharpe_fourth_trimester(pnls, periods=252):
+    return sharpe_n_trimester(pnls, 4, periods=periods)
 
 
-def sharpe_ratio_last_x(returns, time_period, periods=252):
-    return sharpe_ratio(returns[-time_period:], periods=periods)
+def sharpe_ratio_last_x(pnls, time_period, periods=252):
+    return sharpe_ratio(pnls[-time_period:], periods=periods)
 
 
-def sharpe_ratio_last_90_days(returns, periods=252):
-    return sharpe_ratio_last_x(returns, 90, periods=periods)
+def sharpe_ratio_last_90_days(pnls, periods=252):
+    return sharpe_ratio_last_x(pnls, 90, periods=periods)
 
 
-def sharpe_ratio_last_30_days(returns, periods=252):
-    return sharpe_ratio_last_x(returns, 30, periods=periods)
+def sharpe_ratio_last_30_days(pnls, periods=252):
+    return sharpe_ratio_last_x(pnls, 30, periods=periods)
 
 
-def sharpe_ratio_last_150_days(returns, periods=252):
-    return sharpe_ratio_last_x(returns, 150, periods=periods)
+def sharpe_ratio_last_150_days(pnls, periods=252):
+    return sharpe_ratio_last_x(pnls, 150, periods=periods)
 
 
-def sharpe_ratio_last_year(returns, periods=252):
-    return sharpe_ratio_last_x(returns, 252, periods=252)
+def sharpe_ratio_last_year(pnls, periods=252):
+    return sharpe_ratio_last_x(pnls, 252, periods=252)
 
 
-def max_rolling_sharpe(returns, window=156, periods=252):
-    return returns.rolling(window).apply(sharpe_ratio).max()
+def max_rolling_sharpe(pnls, window=156, periods=252):
+    return pnls.rolling(window).apply(sharpe_ratio).max()
 
 
-def highest_6_month_sharpe(returns, periods=252):
-    return max_rolling_sharpe(returns, window=156, periods=252)
+def highest_6_month_sharpe(pnls, periods=252):
+    return max_rolling_sharpe(pnls, window=156, periods=252)
 
 
-def annret(returns, periods=252):
-    return periods * returns.mean()
+def annret(pnls, periods=252):
+    return periods * pnls.mean()
 
 
-def annret_last_year(returns, periods=252):
-    return annret(returns.iloc[-252:], periods=periods)
+def annret_last_year(pnls, periods=252):
+    return annret(pnls.iloc[-252:], periods=periods)
 
 
-def annvol(returns, periods=252):
-    return np.sqrt(periods) * returns.std()
+def annvol(pnls, periods=252):
+    return np.sqrt(periods) * pnls.std()
 
 
-def annvol_last_year(returns, periods=252):
-    return annvol(returns.iloc[-252:], periods=periods)
+def annvol_last_year(pnls, periods=252):
+    return annvol(pnls.iloc[-252:], periods=periods)
 
 
-def skewness(returns):
-    return returns.skew()
+def skewness(pnls):
+    return pnls.skew()
 
 
-def skewness_last_year(returns):
-    return skewness(returns.iloc[-252:])
+def skewness_last_year(pnls):
+    return skewness(pnls.iloc[-252:])
 
 
-def kurtosis(returns):
-    return returns.kurt()
+def kurtosis(pnls):
+    return pnls.kurt()
 
 
-def kurtosis_last_year(returns):
-    return kurtosis(returns.iloc[-252:])
+def kurtosis_last_year(pnls):
+    return kurtosis(pnls.iloc[-252:])
 
 
 def beta_spy(returns):
@@ -133,31 +133,31 @@ def information_ratio_last_year(returns):
     return information_ratio(returns.iloc[-252:])
 
 
-def beta_std(returns):
+def beta_std(pnls):
     raise NotImplementedError
 
 
-def sharpe_std(returns, periods=252, window=126):
-    roll = returns.rolling(window=window)
+def sharpe_std(pnls, periods=252, window=126):
+    roll = pnls.rolling(window=window)
 
     roll_sharpe = (np.sqrt(periods) * roll.mean() / roll.std()).dropna()
 
     return roll_sharpe.std()
 
 
-def sortino_ratio(returns):
-    return returns.mean() / returns[returns < 0].std()
+def sortino_ratio(pnls):
+    return pnls.mean() / pnls[pnls < 0].std()
 
 
-def sortino_last_year(returns):
-    return sortino_ratio(returns.iloc[-252:])
+def sortino_last_year(pnls):
+    return sortino_ratio(pnls.iloc[-252:])
 
 
-def drawdown_pct(returns):
-    if returns.empty:
+def drawdown_pct(pnls):
+    if pnls.empty:
         return np.nan
 
-    c_returns = returns.cumsum()
+    c_returns = pnls.cumsum()
     highs = c_returns.expanding().max()
 
     drawdowns = c_returns - highs
@@ -165,8 +165,8 @@ def drawdown_pct(returns):
     return drawdowns[drawdowns < 0].count() / drawdowns.shape[0]
 
 
-def worst_drawdown_duration(returns):
-    c_returns = returns.cumsum()
+def worst_drawdown_duration(pnls):
+    c_returns = pnls.cumsum()
     highs = c_returns.expanding().max()
 
     drawdowns = c_returns - highs
@@ -185,8 +185,8 @@ def worst_drawdown_duration(returns):
     return worst_duration
 
 
-def drawdown_area(returns):
-    c_returns = returns.cumsum()
+def drawdown_area(pnls):
+    c_returns = pnls.cumsum()
     highs = c_returns.expanding().max()
 
     diff = c_returns - highs
@@ -194,12 +194,12 @@ def drawdown_area(returns):
     return diff.abs().sum()
 
 
-def drawdown_area_last_year(returns):
-    return drawdown_area(returns.iloc[-252:])
+def drawdown_area_last_year(pnls):
+    return drawdown_area(pnls.iloc[-252:])
 
 
-def max_drawdown(returns):
-    c_returns = returns.cumsum()
+def max_drawdown(pnls):
+    c_returns = pnls.cumsum()
     highs = c_returns.expanding().max()
 
     diff = c_returns - highs
@@ -207,39 +207,39 @@ def max_drawdown(returns):
     return np.abs(np.min(diff))
 
 
-def max_drawdown_last_year(returns):
-    return max_drawdown(returns.iloc[-252:])
+def max_drawdown_last_year(pnls):
+    return max_drawdown(pnls.iloc[-252:])
 
 
-def calmar_ratio(returns, periods=252):
-    md = max_drawdown(returns)
+def calmar_ratio(pnls, periods=252):
+    md = max_drawdown(pnls)
 
     if md == 0:
         return np.nan
 
-    return periods * returns.mean() / md
+    return periods * pnls.mean() / md
 
 
-def calmar_ratio_last_year(returns, periods=252):
-    return calmar_ratio(returns.iloc[-252:], periods=periods)
+def calmar_ratio_last_year(pnls, periods=252):
+    return calmar_ratio(pnls.iloc[-252:], periods=periods)
 
 
-def tail_ratio(returns, tail=0.05):
-    qt = np.abs(returns.quantile(0.05))
+def tail_ratio(pnls, tail=0.05):
+    qt = np.abs(pnls.quantile(0.05))
 
     if qt == 0:
         return np.nan
 
-    return returns.quantile(1 - tail) / qt
+    return pnls.quantile(1 - tail) / qt
 
 
-def tail_ratio_last_year(returns, tail=0.05):
-    return tail_ratio(returns.iloc[-252:], tail=tail)
+def tail_ratio_last_year(pnls, tail=0.05):
+    return tail_ratio(pnls.iloc[-252:], tail=tail)
 
 
-def common_sense_ratio(returns, tail=0.05, periods=252):
-    return tail_ratio(returns, tail=tail) * (1 + annret(returns, periods))
+def common_sense_ratio(pnls, tail=0.05, periods=252):
+    return tail_ratio(pnls, tail=tail) * (1 + annret(pnls, periods))
 
 
-def common_sense_ratio_last_year(returns, tail=0.05, periods=252):
-    return common_sense_ratio(returns.iloc[-252:], tail=tail, periods=periods)
+def common_sense_ratio_last_year(pnls, tail=0.05, periods=252):
+    return common_sense_ratio(pnls.iloc[-252:], tail=tail, periods=periods)
