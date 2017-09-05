@@ -9,6 +9,7 @@ from sklearn.ensemble import RandomForestRegressor
 import features as ft
 import preprocessing
 import util
+from sklearn.linear_model import LinearRegression
 
 pd.set_option('display.width', 200)
 
@@ -166,8 +167,11 @@ def main():
 
     training_data_file = './data/training_data.csv'
     strategy_pnls = pd.read_csv('./data/all-pairs.csv', parse_dates=True, index_col=0)
+    # training_data_file = './data/training_data-all_ll.csv'
+    # strategy_pnls = pd.read_csv('./data/all-pairs_ll-pairs.csv', parse_dates=True, index_col=0)
     strategy_pnls = strategy_pnls['2013':'2016']
     strategy_pnls = preprocessing.filter_on_nb_trades(strategy_pnls, percent=0.3)  # filter strategies that have more than 30% of non trading days
+    print('Remaining number of strategy PNLs: %s' % strategy_pnls.shape[1])
 
     production_strategies_pnls = pd.read_csv('./data/production-strategies.csv', parse_dates=True, index_col=0)
     production_strategies_pnls = production_strategies_pnls['2013':'2016']
@@ -182,8 +186,24 @@ def main():
                                                                                sharpe_based_selection_function,
                                                                                start_year='2016')
 
+    from sklearn.feature_selection import RFE
+    from sklearn.cross_decomposition import PLSRegression
     model = RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1)
+    lm_model = LinearRegression()
+    pls = PLSRegression(n_components=13)
+
+    model = pls
     model.fit(training_features, training_labels)
+
+    # rfe = RFE(pls, n_features_to_select=1, step=1, verbose=1)
+    # model = rfe
+    # model.fit(training_features, training_labels)
+    # lm_model.fit(training_features, training_labels)
+    # model = lm_model
+
+    import statsmodels.api as sm
+    lm = sm.OLS(training_labels, sm.add_constant(training_features)).fit()
+    print(lm.summary())
 
     forest_selection_function = functools.partial(select_n_best_predicted_strategies, model, features_list)
     forest_pnls, forest_selected_strategies = portfolio_selection_simulation(production_strategies_pnls['2013':'2016'],
@@ -204,6 +224,7 @@ def main():
     X = pd.read_csv('./data/precomputed-features-prod/%s' % pairs_to_check, parse_dates=True, index_col=0)
     y = pd.read_csv('./data/precomputed-features-prod/%s_output' % pairs_to_check, parse_dates=True, index_col=0)
 
+    print('Plotting boundaries!')
     make_estimation_boundary_plots(X, y, model, block_at_end=True, standardize=False)
 
     save_model(model, 'data/simple-forest.pkl')
@@ -211,6 +232,7 @@ def main():
 
 def make_estimation_boundary_plots(X, y, model, block_at_end=True, lines_per_plot=20, abort_after=200,
                                    standardize=False):
+    return
     import matplotlib.pyplot as plt
 
     forest_pred = model.predict(X)

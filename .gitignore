@@ -170,3 +170,5 @@ ENV/
 pairplot*.png
 archive/
 *.ipynb
+
+plots/scatterplots/*
