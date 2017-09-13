@@ -7,6 +7,9 @@ sns.set()
 def main():
     data = pd.read_csv('./data/training_data.csv', index_col=0)
 
+    ts = (data.abs() < 7).all(axis=1)
+    data = data[ts]
+
     X = data.drop(['OUTPUT'], axis=1)
     y = data['OUTPUT']
 

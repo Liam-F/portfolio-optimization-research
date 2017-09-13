@@ -5,20 +5,29 @@ import functools
 import pickle
 from datetime import timedelta
 from multiprocessing import Pool
+
 from sklearn.ensemble import RandomForestRegressor
 import features as ft
 import preprocessing
 import util
+from sklearn.feature_selection import RFE
 from sklearn.linear_model import LinearRegression
 
 pd.set_option('display.width', 200)
 
+global rs_median, rs_scale
+rs_median, rs_scale = None, None
+
 
 def robust_scale(X):
-    median = np.median(X, axis=0)
-    scale = np.percentile(X, 75, axis=0) - np.percentile(X, 25, axis=0)
-    X = X - median
-    return X / scale
+    global rs_median, rs_scale
+
+    if rs_median is None:
+        rs_median = np.median(X, axis=0)
+        rs_scale = np.percentile(X, 75, axis=0) - np.percentile(X, 25, axis=0)
+
+    X = X - rs_median
+    return X / rs_scale
 
 
 def compute_features(pairs, features_list, drop_nans=True, scale=True):
@@ -28,7 +37,8 @@ def compute_features(pairs, features_list, drop_nans=True, scale=True):
 
     X = np.zeros((nb_strategies, len(features_list)))
     for i, strategy in enumerate(pairs.columns):
-        X[i] = preprocessing.compute_features(pairs[strategy], features_list)
+        # X[i] = preprocessing.compute_features(pairs[strategy], features_list)
+        X[i] = preprocessing.compute_features(pairs.ix[:, i], features_list)
     X = pd.DataFrame(data=X, columns=feature_names, index=pairs.columns)
     if drop_nans:
         X = util.drop_nan_rows(X)
@@ -37,11 +47,15 @@ def compute_features(pairs, features_list, drop_nans=True, scale=True):
     return X
 
 
-def compute_labels(pairs):
+def compute_labels(pairs, return_series=False):
     nb_strategies = pairs.shape[1]
     y = np.zeros((nb_strategies, 1))
     for i, strategy in enumerate(pairs.columns):
         y[i] = np.array([ft.sharpe_ratio(pairs[strategy])])
+
+    if return_series:
+        y = pd.Series(y[:, 0], index=pairs.columns)
+
     return y
 
 
@@ -51,8 +65,51 @@ def sharpe_based_selection_function(pnls, date, n=50):
     return sharpes.sort_values(ascending=False).index[:n].values
 
 
+import threading
+global cache, lock
+lock = threading.Lock()
+cache = {}
+
 def select_n_best_predicted_strategies(model, features_list, strategy_pnls, date, n=50):
     strategy_pnls = strategy_pnls[:(date - timedelta(days=1))]
+
+    # X = np.zeros((strategy_pnls.shape[1], len(features_list)))
+    #
+    # global cache, lock
+    # lock.acquire()
+    # if date not in cache:
+    #     cache[date] = {}
+    # lock.release()
+    #
+    # non_exist = 0
+    # for i, col in enumerate(strategy_pnls):
+    #     precomputed_features_file = f'I:/Gilles/precomputed-features-sim-bootstrap/{date.date()}_{col}'
+    #
+    #     lock.acquire()
+    #     if col in cache[date]:
+    #         feats = cache[date][col]
+    #         lock.release()
+    #     else:
+    #         lock.release()
+    #         if not os.path.exists(precomputed_features_file):
+    #             non_exist = non_exist + 1
+    #             feats = compute_features(strategy_pnls.ix[:, [i]], features_list, scale=False, drop_nans=True)
+    #             feats.to_csv(precomputed_features_file)
+    #             feats = feats.loc[col]
+    #         else:
+    #             feats = pd.read_csv(precomputed_features_file, index_col=0)
+    #             feats = feats.loc[col]
+    #
+    #         lock.acquire()
+    #         cache[date][col] = feats
+    #         lock.release()
+    #
+    #     X[i, :] = feats.iloc[0]
+    #
+    # print('%s files out of %s did not exist.' % (non_exist, strategy_pnls.shape[1]))
+    #
+    # X = pd.DataFrame(X, index=strategy_pnls.columns)
+
     X = compute_features(strategy_pnls, features_list, scale=True, drop_nans=True)
 
     precomputed_features_file = f'data/precomputed-features-prod/{date.date()}'
@@ -180,7 +237,10 @@ def main():
     production_strategies_pnls = production_strategies_pnls['2013':'2016']
 
     training_data = compute_training_dataset(features_list, strategy_pnls['2013':'2014'], strategy_pnls['2015'],
-                                             training_data_file)
+                                             training_data_file, scale=False)
+
+    # training_data = training_data[(training_data.abs() < 7).all(axis=1)]
+    print('Remaining number of training samples: %s' % training_data.shape[0])
 
     training_features = training_data.drop(['OUTPUT'], axis=1)
     training_labels = training_data['OUTPUT']
@@ -189,13 +249,21 @@ def main():
                                                                                sharpe_based_selection_function,
                                                                                start_year='2016')
 
-    from sklearn.feature_selection import RFE
-    from sklearn.cross_decomposition import PLSRegression
     model = RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1)
-    # lm_model = LinearRegression()
-    # pls = PLSRegression(n_components=13)
-    #
+
+    # from sklearn.cross_decomposition import PLSRegression
+    # pls = PLSRegression(n_components=1)
     # model = pls
+
+    # from sklearn.decomposition import PCA
+    # from sklearn.pipeline import Pipeline
+    # lm_model = LinearRegression()
+    # pca = PCA()
+    # # pipe = Pipeline(steps=[('pca', pca), ('ln', lm_model)])
+    # rfe = RFE(lm_model, n_features_to_select=9, step=1, verbose=1)
+    # pipe = Pipeline(steps=[('pca', pca), ('rfe', rfe)])
+    # model = pipe
+
     model.fit(training_features, training_labels)
 
     # rfe = RFE(pls, n_features_to_select=1, step=1, verbose=1)
