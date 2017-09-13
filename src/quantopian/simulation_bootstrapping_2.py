@@ -18,6 +18,7 @@ from quantopian.RobustScaler import RobustScaler
 from quantopian.main import compute_features, compute_labels
 
 CACHE_FILES_FOLDER = './data/bootstrap_simulation_cached_features_prod/'
+CACHE_FILES_FOLDER = './data/bootstrap_simulation_cached_features/'
 sns.set()
 
 
@@ -221,9 +222,9 @@ def main():
     production_strategies_pnls = pd.read_csv('./data/production-strategies.csv', parse_dates=True, index_col=0)
     production_strategies_pnls = production_strategies_pnls['2015':'2017']
 
-    all_pair_pnls = production_strategies_pnls
+    all_pair_pnls = all_pair_pnls_train
 
-    change_dates, selection_dates = get_simulation_dates(all_pair_pnls, start_year='2017')
+    change_dates, selection_dates = get_simulation_dates(all_pair_pnls, start_year='2016')
 
     features = (ft.trading_days, ft.sharpe_ratio, ft.sharpe_ratio_last_year, ft.annret, ft.annvol,
                 ft.skewness, ft.kurtosis, ft.information_ratio,
@@ -232,7 +233,7 @@ def main():
                 ft.sharpe_ratio_last_30_days, ft.sharpe_ratio_last_90_days,
                 ft.sharpe_ratio_last_150_days)
 
-    force_recompute = True
+    force_recompute = False
     pool_size = 5
 
     print('Computing Cache Files (Forced: %s)' % force_recompute)
@@ -242,14 +243,14 @@ def main():
 
     print('Building Models')
     CACHE_FILES_FOLDER_TRAIN = './data/bootstrap_simulation_cached_features/'
-    models, model_names = get_selected_models(all_pair_pnls_train, CACHE_FILES_FOLDER_TRAIN, force_recompute, features)
+    models, model_names = get_pls_models(all_pair_pnls_train, CACHE_FILES_FOLDER_TRAIN, force_recompute, features)
 
     scaled_pnls = all_pair_pnls / all_pair_pnls['2015-02':'2015-12'].std()
     scaled_pnls = scaled_pnls.dropna(axis=1)
 
     print('Running Bootstrap')
     func = functools.partial(do_bootstrap_ignored_arg, scaled_pnls, models, selection_dates,
-                             change_dates, model_names, subsample_size=100, portfolio_size=50)
+                             change_dates, model_names, subsample_size=6000, portfolio_size=100)
     with Pool(pool_size) as pool:
         results = pool.map(func, tqdm.tqdm(range(1000)))
 
