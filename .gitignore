@@ -172,3 +172,5 @@ archive/
 *.ipynb
 
 plots/scatterplots/*
+plots/scatterplots_v2_12kpairs/
+plots/scatterplots_v2/

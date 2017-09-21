@@ -143,6 +143,10 @@ def portfolio_selection_simulation(strategy_pnls, strategy_selection_function, s
     if second_date not in change_dates:
         change_dates = change_dates.union(pd.Index([second_date]))
 
+    if selection_dates.shape[0] < 8:
+        pass
+        raise Exception("Expected more selection dates...")
+
     selection_dates = selection_dates[:len(change_dates)]
 
     strategy_selection_fn_partial = functools.partial(strategy_selection_function, strategy_pnls)

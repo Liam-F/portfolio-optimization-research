@@ -26,6 +26,11 @@ def sharpe_ratio(pnls, periods=252):
     return np.sqrt(periods) * pnls.mean() / std
 
 
+def ahmed_sharpe_ratio(pnls):
+    periods = trading_days(pnls)
+    return sharpe_ratio(pnls, periods=periods)
+
+
 def sharpe_n_trimester(pnls, n, periods=252):
     pnls = pnls[-252:]
     returns_count = pnls.shape[0]

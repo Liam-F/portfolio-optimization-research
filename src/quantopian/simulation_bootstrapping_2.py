@@ -18,7 +18,7 @@ from quantopian.RobustScaler import RobustScaler
 from quantopian.main import compute_features, compute_labels
 
 CACHE_FILES_FOLDER = './data/bootstrap_simulation_cached_features_prod/'
-CACHE_FILES_FOLDER = './data/bootstrap_simulation_cached_features/'
+# CACHE_FILES_FOLDER = './data/bootstrap_simulation_cached_features/'
 sns.set()
 
 
@@ -233,7 +233,7 @@ def main():
                 ft.sharpe_ratio_last_30_days, ft.sharpe_ratio_last_90_days,
                 ft.sharpe_ratio_last_150_days)
 
-    force_recompute = False
+    force_recompute = True
     pool_size = 5
 
     print('Computing Cache Files (Forced: %s)' % force_recompute)
